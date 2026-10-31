@@ -324,8 +324,8 @@ docs\distribution.md         shipping options and signing requirements
 - **Privacy.** No telemetry, no network access beyond update checks, no elevation. The
   extension only launches a local process.
 - **Windows 10 and arm64.** Registry verbs are verified on Windows 11's classic menu but not
-  on real Windows 10 hardware. The arm64 build compiles and is PE-verified; runtime
-  verification needs an ARM64 Windows runner.
+  on real Windows 10 hardware. The arm64 build is verified on a Windows on ARM runner: it
+  compiles, the PE machine type is checked, and the packaged COM class activates.
 
 ## License
 
