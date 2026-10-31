@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Rendered by scripts/make-appinstaller.ps1.
+  Tokens: {{INSTALLER_URI}} {{NAME}} {{PUBLISHER}} {{VERSION}} {{BUNDLE_URI}}
+-->
+<AppInstaller
+    xmlns="http://schemas.microsoft.com/appx/appinstaller/2021"
+    Version="1.0.0.0"
+    Uri="{{INSTALLER_URI}}">
+
+  <MainBundle
+      Name="{{NAME}}"
+      Publisher="{{PUBLISHER}}"
+      Version="{{VERSION}}"
+      Uri="{{BUNDLE_URI}}" />
+
+  <UpdateSettings>
+    <!-- Shown when the app is launched; useful once a launchable surface exists. -->
+    <OnLaunch HoursBetweenUpdateChecks="12" ShowPrompt="true" UpdateBlocksActivation="false" />
+    <!-- The dependable path for an extension-only package: no launch required. -->
+    <AutomaticBackgroundTask />
+    <ForceUpdateFromAnyVersion>true</ForceUpdateFromAnyVersion>
+  </UpdateSettings>
+</AppInstaller>

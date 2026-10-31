@@ -102,7 +102,8 @@ $header = @(
     "#define OC_IDENTITY_NAME L`"$($identity.name)`"",
     "#define OC_IDENTITY_PUBLISHER L`"$($identity.publisher)`"",
     "#define OC_IDENTITY_DISPLAY_NAME L`"$($identity.displayName)`"",
-    "#define OC_IDENTITY_VERSION L`"$($identity.version)`""
+    "#define OC_IDENTITY_VERSION L`"$($identity.version)`"",
+    "#define OC_IDENTITY_UPDATE_URI L`"$($identity.updateUri)`""
 ) -join "`r`n"
 [System.IO.File]::WriteAllText((Join-Path $generated 'identity.h'), $header, (New-Object System.Text.UTF8Encoding($false)))
 
@@ -134,7 +135,9 @@ $core = @(
     'src\core\settings.cpp',
     'src\core\terminals.cpp',
     'src\core\binary.cpp',
-    'src\core\launch.cpp'
+    'src\core\launch.cpp',
+    'src\core\http.cpp',
+    'src\core\update.cpp'
 ) | ForEach-Object { Join-Path $root $_ }
 
 $common = @(
@@ -145,7 +148,7 @@ $common = @(
     "-I$(Join-Path $root 'src')"
 )
 
-$libs = @('-lole32', '-lshlwapi', '-luuid', '-lshell32', '-luser32', '-ladvapi32', '-lcrypt32')
+$libs = @('-lole32', '-lshlwapi', '-luuid', '-lshell32', '-luser32', '-ladvapi32', '-lcrypt32', '-lwinhttp')
 
 Write-Host 'dll      : OpenCodeShell.dll'
 & $gxx @common -shared -o (Join-Path $OutDir 'OpenCodeShell.dll') `

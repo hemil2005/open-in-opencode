@@ -93,6 +93,13 @@ if ($Sign) {
     Write-Host ''
     & (Join-Path $PSScriptRoot 'sign.ps1') -Path $bundle -Pfx $Pfx -Password $PfxPassword
     if ($LASTEXITCODE -ne 0) { throw 'signing failed' }
+
+    # Hard guarantee: never hand out an unsigned bundle. A silent signing failure once
+    # produced a bundle that would not install.
+    $signtool = Find-SdkTool 'signtool.exe'
+    if (-not $signtool) { throw 'signtool.exe not found; cannot verify the signature' }
+    & $signtool verify /pa $bundle | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw 'bundle is still unsigned after the signing step' }
 }
 
 Write-Host ''

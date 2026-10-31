@@ -17,6 +17,7 @@ struct TerminalChoice {
 struct Settings {
   int version = 1;
   std::wstring binaryPath;  // empty means auto-discovery
+  std::wstring updateUri;   // empty means use the URI baked in at build time
   TerminalChoice terminal;
   bool continueFromProjectRoot = false;
   bool logging = false;

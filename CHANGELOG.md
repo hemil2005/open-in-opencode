@@ -8,9 +8,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this pr
 
 ### Added
 
-- `.appinstaller` auto-update.
 - Windows 10 registry verbs.
-- License.
+- opencode plugin surface for settings.
+
+## [0.5.0] - 2026-10-31
+
+### Added
+
+- Update pipeline: `packaging/appinstaller.template.xml` and `scripts/make-appinstaller.ps1`
+  produce the `.appinstaller` that drives MSIX auto-update.
+- `ocshell update check|apply`: compares the published version with the installed one and
+  installs the newer bundle (WinHTTP download, PowerShell `Add-AppxPackage`).
+- `updateUri` setting, with the build-time value baked into `identity.h`.
+- `.github/workflows/release.yml` publishes bundle, installer and `.appinstaller`.
+
+### Fixed
+
+- `package.ps1 -Sign` now verifies the bundle signature after signing. A silent signing
+  failure previously produced an unsigned bundle that failed to install with
+  `0x800B0100`.
 
 ## [0.4.0] - 2026-10-31
 

@@ -15,6 +15,7 @@
 #include "core/paths.hpp"
 #include "core/settings.hpp"
 #include "core/terminals.hpp"
+#include "core/update.hpp"
 
 namespace {
 
@@ -124,6 +125,8 @@ int CommandSettingsSet(const std::vector<std::wstring>& arguments) {
 
   if (key == L"binaryPath") {
     settings.binaryPath = value == L"-" ? L"" : value;
+  } else if (key == L"updateUri") {
+    settings.updateUri = value == L"-" ? L"" : value;
   } else if (key == L"terminal.mode") {
     if (value != L"auto" && value != L"default" && value != L"custom") {
       return Fail(L"terminal.mode must be auto, default or custom");
@@ -412,6 +415,150 @@ int CommandSelfTest() {
   return failures == 0 ? 0 : 1;
 }
 
+std::wstring EncodePowerShell(const std::wstring& script) {
+  // PowerShell -EncodedCommand takes base64 of UTF-16LE. Avoids every quoting problem with
+  // paths containing spaces or quotes.
+  std::vector<unsigned char> bytes;
+  bytes.reserve(script.size() * 2);
+  for (wchar_t c : script) {
+    bytes.push_back(static_cast<unsigned char>(c & 0xFF));
+    bytes.push_back(static_cast<unsigned char>((c >> 8) & 0xFF));
+  }
+
+  static const char table[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  std::string out;
+  for (size_t i = 0; i < bytes.size(); i += 3) {
+    const unsigned v = (static_cast<unsigned>(bytes[i]) << 16) |
+                       (i + 1 < bytes.size() ? static_cast<unsigned>(bytes[i + 1]) << 8 : 0) |
+                       (i + 2 < bytes.size() ? static_cast<unsigned>(bytes[i + 2]) : 0);
+    out.push_back(table[(v >> 18) & 63]);
+    out.push_back(table[(v >> 12) & 63]);
+    out.push_back(i + 1 < bytes.size() ? table[(v >> 6) & 63] : '=');
+    out.push_back(i + 2 < bytes.size() ? table[v & 63] : '=');
+  }
+  return std::wstring(out.begin(), out.end());
+}
+
+std::wstring ResolveUpdateUri(const oc::Settings& settings) {
+  if (!settings.updateUri.empty()) return settings.updateUri;
+  return OC_IDENTITY_UPDATE_URI;
+}
+
+int CommandUpdateCheck(const std::vector<std::wstring>& arguments) {
+  oc::Settings settings;
+  std::wstring warning;
+  oc::LoadSettings(&settings, &warning);
+
+  const std::wstring uri = ResolveUpdateUri(settings);
+  if (uri.empty()) {
+    return Fail(L"no update source configured; set updateUri with `ocshell settings set updateUri <url>`");
+  }
+
+  oc::UpdateInfo info;
+  std::wstring error;
+  if (!oc::FetchUpdateInfo(uri, &info, &error)) return Fail(error);
+
+  const bool available = oc::CompareVersions(info.version, OC_IDENTITY_VERSION) > 0;
+
+  if (HasFlag(arguments, L"--json")) {
+    oc::json::Value root = oc::json::Value::MakeObject();
+    root.Set(L"current", oc::json::Value::MakeString(OC_IDENTITY_VERSION));
+    root.Set(L"available", oc::json::Value::MakeString(info.version));
+    root.Set(L"updateAvailable", oc::json::Value::MakeBool(available));
+    root.Set(L"bundleUri", oc::json::Value::MakeString(info.bundleUri));
+    root.Set(L"installerUri", oc::json::Value::MakeString(info.installerUri));
+    Line(oc::json::Write(root, true));
+    return 0;
+  }
+
+  Line(L"current   : " + std::wstring(OC_IDENTITY_VERSION));
+  Line(L"available : " + info.version);
+  Line(L"source    : " + uri);
+  Line(available ? L"update available: run `ocshell update apply`" : L"up to date");
+  return 0;
+}
+
+int CommandUpdateApply() {
+  oc::Settings settings;
+  std::wstring warning;
+  oc::LoadSettings(&settings, &warning);
+
+  const std::wstring uri = ResolveUpdateUri(settings);
+  if (uri.empty()) {
+    return Fail(L"no update source configured; set updateUri with `ocshell settings set updateUri <url>`");
+  }
+
+  oc::UpdateInfo info;
+  std::wstring error;
+  if (!oc::FetchUpdateInfo(uri, &info, &error)) return Fail(error);
+
+  if (oc::CompareVersions(info.version, OC_IDENTITY_VERSION) <= 0) {
+    Line(L"already up to date (" + std::wstring(OC_IDENTITY_VERSION) + L")");
+    return 0;
+  }
+
+  wchar_t temp[MAX_PATH] = {};
+  GetTempPathW(MAX_PATH, temp);
+  const std::wstring bundle = std::wstring(temp) + L"OpenCodeShell_" + info.version + L".msixbundle";
+
+  Line(L"downloading " + info.bundleUri);
+  if (!oc::DownloadFile(info.bundleUri, bundle, &error)) return Fail(error);
+
+  Line(L"installing " + info.version);
+  const std::wstring script = L"Add-AppxPackage -Path '" + bundle + L"'";
+  std::wstring command = L"powershell.exe -NoProfile -NonInteractive -EncodedCommand " +
+                         EncodePowerShell(script);
+
+  // Capture PowerShell output: an exit code alone is not diagnosable.
+  wchar_t temp_dir[MAX_PATH] = {};
+  GetTempPathW(MAX_PATH, temp_dir);
+  const std::wstring console_log = std::wstring(temp_dir) + L"OpenCodeShell_update.log";
+
+  SECURITY_ATTRIBUTES inherit;
+  ZeroMemory(&inherit, sizeof(inherit));
+  inherit.nLength = sizeof(inherit);
+  inherit.bInheritHandle = TRUE;
+  HANDLE output = CreateFileW(console_log.c_str(), GENERIC_WRITE, FILE_SHARE_READ, &inherit, CREATE_ALWAYS,
+                              FILE_ATTRIBUTE_NORMAL, nullptr);
+
+  STARTUPINFOW startup;
+  ZeroMemory(&startup, sizeof(startup));
+  startup.cb = sizeof(startup);
+  if (output != INVALID_HANDLE_VALUE) {
+    startup.dwFlags = STARTF_USESTDHANDLES;
+    startup.hStdOutput = output;
+    startup.hStdError = output;
+  }
+
+  PROCESS_INFORMATION process;
+  ZeroMemory(&process, sizeof(process));
+  if (!CreateProcessW(nullptr, &command[0], nullptr, nullptr, output != INVALID_HANDLE_VALUE,
+                      CREATE_NO_WINDOW, nullptr, nullptr, &startup, &process)) {
+    if (output != INVALID_HANDLE_VALUE) CloseHandle(output);
+    return Fail(L"could not start PowerShell");
+  }
+  WaitForSingleObject(process.hProcess, 180000);
+  DWORD exit_code = 1;
+  GetExitCodeProcess(process.hProcess, &exit_code);
+  CloseHandle(process.hThread);
+  CloseHandle(process.hProcess);
+  if (output != INVALID_HANDLE_VALUE) CloseHandle(output);
+  DeleteFileW(bundle.c_str());
+
+  std::wstring details;
+  if (exit_code != 0) oc::ReadTextFile(console_log, &details);
+  DeleteFileW(console_log.c_str());
+
+  if (exit_code != 0) {
+    std::wstring message = L"package installation failed (PowerShell exit " + std::to_wstring(exit_code) + L")";
+    if (!details.empty()) message += L"\n" + details;
+    return Fail(message);
+  }
+
+  Line(L"updated to " + info.version);
+  return 0;
+}
+
 void Usage() {
   Line(L"OpenCodeShell " + std::wstring(OC_IDENTITY_VERSION));
   Line(L"");
@@ -421,10 +568,12 @@ void Usage() {
   Line(L"  ocshell settings terminals [--json]");
   Line(L"  ocshell settings locate-binary");
   Line(L"  ocshell doctor [--json]");
+  Line(L"  ocshell update check [--json]");
+  Line(L"  ocshell update apply");
   Line(L"  ocshell selftest");
   Line(L"  ocshell version");
   Line(L"");
-  Line(L"keys: binaryPath, terminal.mode, terminal.id, terminal.customPath,");
+  Line(L"keys: binaryPath, updateUri, terminal.mode, terminal.id, terminal.customPath,");
   Line(L"      terminal.customArgs, continueFromProjectRoot, logging");
 }
 
@@ -440,6 +589,14 @@ int main() {
   const std::wstring& command = arguments[1];
   if (command == L"launch") return CommandLaunch(arguments);
   if (command == L"doctor") return CommandDoctor(arguments);
+  if (command == L"update") {
+    if (arguments.size() < 3) {
+      Usage();
+      return 1;
+    }
+    if (arguments[2] == L"check") return CommandUpdateCheck(arguments);
+    if (arguments[2] == L"apply") return CommandUpdateApply();
+  }
   if (command == L"selftest") return CommandSelfTest();
   if (command == L"version") {
     Line(OC_IDENTITY_VERSION);

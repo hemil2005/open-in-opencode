@@ -12,9 +12,11 @@ required, with pricing and eligibility as of late 2026.
 - Verified: the bundle installs with **Developer Mode disabled** once the certificate is
   trusted in `LocalMachine\TrustedPeople`, and upgrades in place (`0.2.0.0 → 0.3.0.0`).
 - ARM64 is verified headlessly by `tests/com-activation.ps1` on a `windows-11-arm` runner.
+- `scripts/make-appinstaller.ps1` + `ocshell update check|apply` implement auto-update;
+  verified by publishing 0.7.0.0 to a local HTTP server and updating an installed 0.6.0.0.
 
-Still outstanding: `.appinstaller` auto-update, the Inno Setup installer, the Windows 10
-registry path, and the Store submission.
+Still outstanding: the Windows 10 registry path, the opencode plugin, and the Store
+submission.
 
 ## The form factor is fixed
 

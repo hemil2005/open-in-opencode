@@ -41,6 +41,7 @@ json::Value SettingsToJson(const Settings& settings) {
   json::Value root = json::Value::MakeObject();
   root.Set(L"version", json::Value::MakeNumber(settings.version));
   root.Set(L"binaryPath", json::Value::MakeString(settings.binaryPath));
+  root.Set(L"updateUri", json::Value::MakeString(settings.updateUri));
   root.Set(L"continueFromProjectRoot", json::Value::MakeBool(settings.continueFromProjectRoot));
   root.Set(L"logging", json::Value::MakeBool(settings.logging));
 
@@ -61,6 +62,7 @@ Settings SettingsFromJson(const json::Value& value) {
     settings.version = static_cast<int>(version->AsNumber(1));
   }
   settings.binaryPath = ReadString(value, L"binaryPath", settings.binaryPath);
+  settings.updateUri = ReadString(value, L"updateUri", settings.updateUri);
   settings.continueFromProjectRoot =
       ReadBool(value, L"continueFromProjectRoot", settings.continueFromProjectRoot);
   settings.logging = ReadBool(value, L"logging", settings.logging);
@@ -120,6 +122,7 @@ std::wstring DescribeSettings(const Settings& settings) {
   std::wstring out;
   out += L"settings file : " + SettingsPath() + L"\n";
   out += L"binaryPath    : " + (settings.binaryPath.empty() ? L"(auto)" : settings.binaryPath) + L"\n";
+  out += L"updateUri     : " + (settings.updateUri.empty() ? L"(built-in)" : settings.updateUri) + L"\n";
   out += L"terminal.mode : " + settings.terminal.mode + L"\n";
   out += L"terminal.id   : " + (settings.terminal.id.empty() ? L"(first available)" : settings.terminal.id) + L"\n";
   if (settings.terminal.mode == L"custom") {

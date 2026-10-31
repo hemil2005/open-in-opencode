@@ -150,6 +150,37 @@ template is listed with `*` and can still be used through `terminal.mode=custom`
 
 Argument templates understand `{dir}`, `{command}`, `{commandline}` and `{pscommand}`.
 
+## Updates
+
+Updates use the standard MSIX `.appinstaller` mechanism — there is no custom updater.
+
+```powershell
+.\scripts\make-appinstaller.ps1 -Repo <owner>/<repo>   # -> out\OpenCodeShell.appinstaller
+```
+
+Publish it as a release asset with a **fixed** name, so the URL clients check never changes:
+
+```
+https://github.com/<owner>/<repo>/releases/latest/download/OpenCodeShell.appinstaller
+```
+
+Windows then updates the package itself (`AutomaticBackgroundTask`, every 8 hours), and users
+can check or apply manually:
+
+```powershell
+ocshell update check                     # compare installed vs published
+ocshell update apply                     # download and install the newer bundle
+ocshell settings set updateUri <url>     # override the built-in source
+```
+
+`OnLaunch` update prompts only fire when the app is launched; this package has no launchable
+surface, so `AutomaticBackgroundTask` is the dependable path.
+
+The release workflow (`.github/workflows/release.yml`) builds and signs both architectures and
+publishes the bundle, the installer and the `.appinstaller`. It expects two repository secrets:
+`SIGNING_PFX_BASE64` and `SIGNING_PFX_PASSWORD`, and a tag matching the package version
+(`v0.5.0.0`).
+
 ## Test
 
 ```powershell
@@ -207,20 +238,21 @@ folder moved. Re-run `.\scripts\install.ps1`.
 ## Project layout
 
 ```
-src\core\                    settings, terminal discovery, binary resolution, launch, log, json
+src\core\                    settings, terminals, binary resolution, launch, log, json, http, update
 src\extension\command.cpp    IExplorerCommand (Windows 11 packaged verb)
-src\cli\main.cpp             ocshell.exe (launch, settings, doctor, selftest)
+src\cli\main.cpp             ocshell.exe (launch, settings, doctor, update, selftest)
 src\noop.cpp                 placeholder exe required by the manifest
 src\resources\app.rc         icon resource
 packaging\identity.json      name, publisher, version (single source of truth)
 packaging\AppxManifest.template.xml   package + verb registration (rendered per arch)
+packaging\appinstaller.template.xml   auto-update manifest (rendered per release)
 packaging\Assets\            package logos
 installer\openshell.iss      Inno Setup installer
 installer\install-package.ps1   cert trust + Add-AppxPackage (also standalone)
-scripts\                     build / package / sign / installer / install / uninstall
+scripts\                     build / package / sign / installer / appinstaller / install / uninstall
 tests\menu-smoke-test.ps1    end-to-end menu smoke test
 tests\com-activation.ps1     headless COM activation check (ARM64 CI)
-.github\workflows\           arm64 verification
+.github\workflows\           arm64 verification, signed release
 docs\design-notes.md         platform findings behind the design decisions
 docs\distribution.md         shipping options and signing requirements
 ```

@@ -1,0 +1,75 @@
+name: release
+
+# Builds and publishes a signed release.
+#
+# Required repository secrets:
+#   SIGNING_PFX_BASE64   base64 of .secrets\OpenCodeShell.pfx
+#   SIGNING_PFX_PASSWORD the PFX password
+#
+# Tag the release with the package version (v0.5.0.0) so the .appinstaller bundle URL
+# matches what make-appinstaller.ps1 generates.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install llvm-mingw (arm64)
+        shell: pwsh
+        run: |
+          $release = Invoke-RestMethod 'https://api.github.com/repos/mstorsjo/llvm-mingw/releases/latest'
+          $asset = $release.assets | Where-Object { $_.name -like '*ucrt-x86_64.zip' } | Select-Object -First 1
+          Write-Host "using $($asset.name)"
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile llvm-mingw.zip
+          Expand-Archive -Path llvm-mingw.zip -DestinationPath .tools/llvm -Force
+
+      - name: Restore signing certificate
+        shell: pwsh
+        env:
+          PFX_BASE64: ${{ secrets.SIGNING_PFX_BASE64 }}
+          PFX_PASSWORD: ${{ secrets.SIGNING_PFX_PASSWORD }}
+        run: |
+          if (-not $env:PFX_BASE64) { throw 'SIGNING_PFX_BASE64 is not configured' }
+          New-Item -ItemType Directory -Force .secrets | Out-Null
+          [IO.File]::WriteAllBytes('.secrets/OpenCodeShell.pfx', [Convert]::FromBase64String($env:PFX_BASE64))
+          Set-Content -Path '.secrets/password.txt' -Value $env:PFX_PASSWORD -NoNewline
+
+      - name: Export public certificate
+        shell: pwsh
+        run: |
+          $password = Get-Content '.secrets/password.txt' -Raw
+          $certificate = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2(
+              '.secrets/OpenCodeShell.pfx', $password)
+          [IO.File]::WriteAllBytes('.secrets/OpenCodeShell.cer',
+              $certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert))
+
+      - name: Build, sign and bundle
+        shell: pwsh
+        run: ./scripts/package.ps1 -InstallTools -Sign
+
+      - name: Build installer
+        shell: pwsh
+        run: ./scripts/build-installer.ps1 -InstallTools
+
+      - name: Generate .appinstaller
+        shell: pwsh
+        run: ./scripts/make-appinstaller.ps1 -Repo ${{ github.repository }}
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            out/OpenCodeShell_*.msixbundle
+            out/OpenCodeShell_*.msix
+            out/OpenCodeShell.appinstaller
+            out/OpenCodeShellSetup-*.exe
+          fail_on_unmatched_files: true
