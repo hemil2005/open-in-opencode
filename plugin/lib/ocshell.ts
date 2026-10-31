@@ -16,12 +16,25 @@ export const MAX_OUTPUT_BYTES = 1024 * 1024
 export const READ_TIMEOUT_MS = 15_000
 export const WRITE_TIMEOUT_MS = 60_000
 export const UPDATE_TIMEOUT_MS = 10 * 60_000
+export const UPDATE_CHECK_TIMEOUT_MS = 30_000
+
+export type OutputStream = "stdout" | "stderr"
 
 export type RunOptions = {
   timeoutMs?: number
   signal?: AbortSignal
   maxBytes?: number
   allowNonZero?: boolean
+  onOutput?: (stream: OutputStream, text: string) => void
+}
+
+export type ProcessOptions = {
+  timeoutMs?: number
+  signal?: AbortSignal
+  maxBytes?: number
+  input?: string
+  onOutput?: (stream: OutputStream, text: string) => void
+  spawn?: SpawnFn
 }
 
 export type Runner = {
@@ -37,14 +50,19 @@ export type Runner = {
 
 export type SpawnOptions = {
   windowsHide: boolean
-  stdio: ["ignore", "pipe", "pipe"]
+  stdio: ["ignore" | "pipe", "pipe", "pipe"]
 }
 
 export type ChildStream = {
   on(event: "data", listener: (chunk: Buffer | string) => void): unknown
 }
 
+export type ChildStdin = {
+  end(input: string): void
+}
+
 export type ChildProcessLike = {
+  stdin: ChildStdin | null
   stdout: ChildStream | null
   stderr: ChildStream | null
   on(event: string, listener: (...args: any[]) => void): unknown
@@ -129,7 +147,10 @@ class Collector {
   private bytes = 0
   truncated = false
 
-  constructor(private readonly maxBytes: number) {}
+  constructor(
+    private readonly maxBytes: number,
+    private readonly onText?: (text: string) => void,
+  ) {}
 
   push(chunk: Buffer | string): void {
     const buffer = typeof chunk === "string" ? Buffer.from(chunk) : chunk
@@ -144,12 +165,23 @@ class Collector {
     if (slice.length === 0) return
 
     this.bytes += slice.length
-    this.parts.push(this.decoder.decode(slice, { stream: true }))
+    this.emit(slice, true)
   }
 
   finish(): string {
-    this.parts.push(this.decoder.decode())
+    const tail = this.decoder.decode()
+    if (tail) {
+      this.parts.push(tail)
+      this.onText?.(tail)
+    }
     return this.parts.join("")
+  }
+
+  private emit(slice: Uint8Array, stream: boolean): void {
+    const text = this.decoder.decode(slice, { stream })
+    if (!text) return
+    this.parts.push(text)
+    this.onText?.(text)
   }
 }
 
@@ -189,6 +221,123 @@ function failure(
   return { ok: false, error }
 }
 
+async function execute(
+  spawn: SpawnFn,
+  command: string,
+  args: string[],
+  options: ProcessOptions,
+): Promise<RunResult> {
+  if (options.signal?.aborted) {
+    return emptyResult("Command cancelled before it started.", true)
+  }
+
+  const maxBytes = options.maxBytes ?? MAX_OUTPUT_BYTES
+
+  return new Promise<RunResult>((settle) => {
+    const stdout = new Collector(maxBytes, (text) => options.onOutput?.("stdout", text))
+    const stderr = new Collector(maxBytes, (text) => options.onOutput?.("stderr", text))
+    let child: ChildProcessLike
+
+    try {
+      child = spawn(command, args, {
+        windowsHide: true,
+        stdio: [options.input === undefined ? "ignore" : "pipe", "pipe", "pipe"],
+      })
+    } catch (error) {
+      settle(emptyResult(error instanceof Error ? error.message : String(error)))
+      return
+    }
+
+    let settled = false
+    let timedOut = false
+    let aborted = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+
+    function finish(code: number | null): void {
+      if (settled) return
+      settled = true
+
+      if (timer !== undefined) {
+        clearTimeout(timer)
+        timer = undefined
+      }
+
+      options.signal?.removeEventListener("abort", onAbort)
+
+      settle({
+        code,
+        stdout: stdout.finish(),
+        stderr: stderr.finish(),
+        timedOut,
+        aborted,
+        truncated: stdout.truncated || stderr.truncated,
+      })
+    }
+
+    function kill(): void {
+      try {
+        // This terminates the direct child only. An installer it already
+        // spawned (notably from `update apply`) may keep running after a timeout.
+        child.kill()
+      } catch {
+        // The child may already be gone; there is nothing else to clean up.
+      }
+    }
+
+    function onAbort(): void {
+      if (settled) return
+      aborted = true
+      kill()
+      finish(null)
+    }
+
+    child.stdout?.on("data", (chunk) => stdout.push(chunk))
+    child.stderr?.on("data", (chunk) => stderr.push(chunk))
+
+    if (options.input !== undefined) {
+      try {
+        child.stdin?.end(options.input)
+      } catch {
+        // A child that closed stdin early is reported by its exit code.
+      }
+    }
+
+    child.on("error", (error: Error) => {
+      if (settled) return
+      stderr.push(error instanceof Error ? error.message : String(error))
+      finish(null)
+    })
+
+    child.on("close", (code: number | null) => {
+      finish(code)
+    })
+
+    const timeoutMs = options.timeoutMs ?? READ_TIMEOUT_MS
+    if (Number.isFinite(timeoutMs) && timeoutMs >= 0) {
+      timer = setTimeout(() => {
+        if (settled) return
+        timedOut = true
+        kill()
+        finish(null)
+      }, timeoutMs)
+    }
+
+    if (options.signal) {
+      options.signal.addEventListener("abort", onAbort, { once: true })
+      if (options.signal.aborted) onAbort()
+    }
+  })
+}
+
+/** Runs an arbitrary Windows executable. Used for the `clip.exe` fallback. */
+export async function runProcess(
+  command: string,
+  args: string[],
+  options: ProcessOptions = {},
+): Promise<RunResult> {
+  return execute(options.spawn ?? defaultSpawn, command, args, options)
+}
+
 export function createRunner(options: CreateRunnerOptions = {}): Runner {
   const spawn = options.spawn ?? defaultSpawn
   const platform = options.platform ?? process.platform
@@ -213,98 +362,7 @@ export function createRunner(options: CreateRunnerOptions = {}): Runner {
   async function run(args: string[], runOptions: RunOptions = {}): Promise<RunResult> {
     const binary = resolve()
     if (!binary) return emptyResult(NOT_FOUND_MESSAGE)
-    if (runOptions.signal?.aborted) {
-      return emptyResult("Command cancelled before it started.", true)
-    }
-
-    const maxBytes = runOptions.maxBytes ?? MAX_OUTPUT_BYTES
-
-    return new Promise<RunResult>((settle) => {
-      const stdout = new Collector(maxBytes)
-      const stderr = new Collector(maxBytes)
-      let child: ChildProcessLike
-
-      try {
-        child = spawn(binary, args, {
-          windowsHide: true,
-          stdio: ["ignore", "pipe", "pipe"],
-        })
-      } catch (error) {
-        settle(emptyResult(error instanceof Error ? error.message : String(error)))
-        return
-      }
-
-      let settled = false
-      let timedOut = false
-      let aborted = false
-      let timer: ReturnType<typeof setTimeout> | undefined
-
-      function finish(code: number | null): void {
-        if (settled) return
-        settled = true
-
-        if (timer !== undefined) {
-          clearTimeout(timer)
-          timer = undefined
-        }
-
-        runOptions.signal?.removeEventListener("abort", onAbort)
-
-        settle({
-          code,
-          stdout: stdout.finish(),
-          stderr: stderr.finish(),
-          timedOut,
-          aborted,
-          truncated: stdout.truncated || stderr.truncated,
-        })
-      }
-
-      function kill(): void {
-        try {
-          // This terminates ocshell.exe only. An installer it already spawned
-          // (notably from `update apply`) may keep running after a timeout.
-          child.kill()
-        } catch {
-          // The child may already be gone; there is nothing else to clean up.
-        }
-      }
-
-      function onAbort(): void {
-        if (settled) return
-        aborted = true
-        kill()
-        finish(null)
-      }
-
-      child.stdout?.on("data", (chunk) => stdout.push(chunk))
-      child.stderr?.on("data", (chunk) => stderr.push(chunk))
-
-      child.on("error", (error: Error) => {
-        if (settled) return
-        stderr.push(error instanceof Error ? error.message : String(error))
-        finish(null)
-      })
-
-      child.on("close", (code: number | null) => {
-        finish(code)
-      })
-
-      const timeoutMs = runOptions.timeoutMs ?? READ_TIMEOUT_MS
-      if (Number.isFinite(timeoutMs) && timeoutMs >= 0) {
-        timer = setTimeout(() => {
-          if (settled) return
-          timedOut = true
-          kill()
-          finish(null)
-        }, timeoutMs)
-      }
-
-      if (runOptions.signal) {
-        runOptions.signal.addEventListener("abort", onAbort, { once: true })
-        if (runOptions.signal.aborted) onAbort()
-      }
-    })
+    return execute(spawn, binary, args, runOptions)
   }
 
   async function json<T>(

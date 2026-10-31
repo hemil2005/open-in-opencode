@@ -62,6 +62,7 @@ export function health(
   settings: Settings | null,
   terminals: Terminal[],
   update: UpdateInfo | null,
+  updateFailed = false,
 ): Health {
   const reasons: string[] = []
   let level: HealthLevel = "ok"
@@ -114,6 +115,8 @@ export function health(
       }
     }
   }
+
+  if (updateFailed) warn("update check failed.")
 
   // An available update is shown in the Updates row, not treated as a health
   // problem. `update` is part of the signature so diagnostics can grow later.

@@ -5,6 +5,7 @@ import { win32 } from "node:path"
 import {
   createRunner,
   resolveOcshell,
+  runProcess,
   type ChildProcessLike,
   type Runner,
 } from "../lib/ocshell"
@@ -25,7 +26,18 @@ class FakeStream extends EventEmitter {
   }
 }
 
+class FakeStdin {
+  value: string | undefined
+  ended = false
+
+  end(input: string): void {
+    this.ended = true
+    this.value = input
+  }
+}
+
 class FakeChild extends EventEmitter implements ChildProcessLike {
+  readonly stdin = new FakeStdin()
   readonly stdout = new FakeStream()
   readonly stderr = new FakeStream()
   killed = false
@@ -219,6 +231,46 @@ describe("run", () => {
     h.child.close(0)
 
     expect((await promise).stdout).toBe("é")
+  })
+
+  test("streams stdout and stderr chunks", async () => {
+    const h = harness()
+    const chunks: string[] = []
+    const promise = h.runner.run(["update", "apply"], {
+      onOutput: (stream, text) => chunks.push(`${stream}:${text}`),
+    })
+
+    h.child.stdout.push("one\n")
+    h.child.stderr.push("two\n")
+    h.child.close(0)
+
+    await promise
+    expect(chunks).toEqual(["stdout:one\n", "stderr:two\n"])
+  })
+})
+
+describe("runProcess", () => {
+  test("writes stdin and captures output", async () => {
+    const child = new FakeChild()
+    let spawned = ""
+
+    const promise = runProcess("clip.exe", [], {
+      input: "hello",
+      spawn: (command) => {
+        spawned = command
+        return child
+      },
+    })
+
+    expect(child.stdin.ended).toBe(true)
+    expect(child.stdin.value).toBe("hello")
+
+    child.stdout.push("copied")
+    child.close(0)
+
+    const result = await promise
+    expect(spawned).toBe("clip.exe")
+    expect(result.stdout).toBe("copied")
   })
 })
 

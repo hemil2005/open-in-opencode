@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { buildReport } from "../lib/report"
+import { buildChecks, buildReport, copyText } from "../lib/report"
 import { doctor, doctorWith, makeSnapshot, ocshellPath, update } from "./fixtures"
 
 const generatedAt = new Date("2026-10-31T12:34:56.000Z")
@@ -139,6 +139,19 @@ describe("buildReport", () => {
     expect(report).toContain("Diagnostics: 1 warning")
   })
 
+  test("treats an update check failure as a health warning", () => {
+    const report = buildReport(
+      makeSnapshot({
+        update: null,
+        errors: [{ kind: "exit", source: "update", message: "no update source" }],
+      }),
+      generatedAt,
+    )
+
+    expect(report).toContain("Health: warn (1 warning)")
+    expect(report).toContain("update check failed.")
+  })
+
   test("renders the update cache timestamp", () => {
     const report = buildReport(
       makeSnapshot({ updateCheckedAt: Date.parse("2026-10-31T11:00:00.000Z") }),
@@ -177,5 +190,134 @@ describe("buildReport", () => {
   test("uses the fixture update data", () => {
     expect(update.updateAvailable).toBe(true)
     expect(buildReport(makeSnapshot(), generatedAt)).toContain("Updates: 0.8.0.0 available")
+  })
+})
+
+describe("buildChecks", () => {
+  test("reports each dashboard check", () => {
+    const checks = buildChecks(makeSnapshot())
+
+    expect(checks.map((check) => check.id)).toEqual([
+      "ocshell",
+      "package",
+      "certificate",
+      "opencode",
+      "settings",
+      "terminals",
+      "update",
+    ])
+    expect(checks.every((check) => check.detail.length > 0)).toBe(true)
+    expect(checks.find((check) => check.id === "terminals")).toMatchObject({
+      level: "ok",
+      detail: "1 supported of 2 detected.",
+    })
+    expect(checks.find((check) => check.id === "update")).toMatchObject({
+      level: "warn",
+      detail: "0.8.0.0 available",
+    })
+  })
+
+  test("reports missing sources and update failures", () => {
+    const checks = buildChecks(
+      makeSnapshot({
+        ocshellPath: null,
+        doctor: null,
+        settings: null,
+        terminals: [],
+        update: null,
+        errors: [{ kind: "exit", source: "update", message: "no update source" }],
+      }),
+    )
+
+    expect(checks.find((check) => check.id === "ocshell")?.level).toBe("error")
+    expect(checks.find((check) => check.id === "opencode")?.level).toBe("error")
+    expect(checks.find((check) => check.id === "settings")?.level).toBe("warn")
+    expect(checks.find((check) => check.id === "terminals")?.level).toBe("warn")
+    expect(checks.find((check) => check.id === "update")).toMatchObject({
+      level: "warn",
+      detail: "no update source",
+    })
+  })
+})
+
+describe("copyText", () => {
+  test("prefers OSC 52", async () => {
+    const calls: string[] = []
+
+    const result = await copyText("report", {
+      osc52: () => {
+        calls.push("osc52")
+        return true
+      },
+      clip: async () => {
+        calls.push("clip")
+        return true
+      },
+      tempFile: async () => {
+        calls.push("file")
+        return "report.txt"
+      },
+    })
+
+    expect(result).toEqual({ ok: true, method: "osc52" })
+    expect(calls).toEqual(["osc52"])
+  })
+
+  test("falls back to clip.exe", async () => {
+    const calls: string[] = []
+
+    const result = await copyText("report", {
+      osc52: () => {
+        calls.push("osc52")
+        return false
+      },
+      clip: async () => {
+        calls.push("clip")
+        return true
+      },
+      tempFile: async () => {
+        calls.push("file")
+        return "report.txt"
+      },
+    })
+
+    expect(result).toEqual({ ok: true, method: "clip" })
+    expect(calls).toEqual(["osc52", "clip"])
+  })
+
+  test("falls back to a temp file", async () => {
+    const calls: string[] = []
+
+    const result = await copyText("report", {
+      osc52: () => {
+        calls.push("osc52")
+        throw new Error("no OSC 52")
+      },
+      clip: async () => {
+        calls.push("clip")
+        return false
+      },
+      tempFile: async () => {
+        calls.push("file")
+        return "C:\\Temp\\report.txt"
+      },
+    })
+
+    expect(result).toEqual({ ok: true, method: "file", path: "C:\\Temp\\report.txt" })
+    expect(calls).toEqual(["osc52", "clip", "file"])
+  })
+
+  test("reports a failure when every transport fails", async () => {
+    const result = await copyText("report", {
+      osc52: () => false,
+      clip: async () => {
+        throw new Error("clip missing")
+      },
+      tempFile: async () => {
+        throw new Error("disk full")
+      },
+    })
+
+    expect(result).toEqual({ ok: false, message: "disk full" })
   })
 })

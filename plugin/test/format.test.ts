@@ -186,6 +186,12 @@ describe("health", () => {
     expect(result.label).toBe("3 warnings")
     expect(new Set(result.reasons).size).toBe(result.reasons.length)
   })
+
+  test("warns when the update check fails", () => {
+    const result = health(doctor, settings, terminals, update, true)
+    expect(result.level).toBe("warn")
+    expect(result.reasons).toContain("update check failed.")
+  })
 })
 
 describe("truncateMiddle", () => {

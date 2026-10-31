@@ -190,6 +190,10 @@ describe("buildRows", () => {
       tone: "error",
     })
     expect(byId(failed, "updates").detail).toContain("not configured")
+    expect(byId(failed, "diagnostics")).toMatchObject({
+      value: "1 warning",
+      tone: "warning",
+    })
   })
 
   test("shows the health summary and reasons", () => {

@@ -6,6 +6,142 @@ import type { Snapshot } from "./types"
  * the dashboard, plus the error details the dashboard can show in a dialog.
  */
 
+export type CheckLevel = "ok" | "warn" | "error"
+
+export type Check = {
+  id: string
+  label: string
+  level: CheckLevel
+  detail: string
+}
+
+export function buildChecks(snapshot: Snapshot): Check[] {
+  const doctor = snapshot.doctor
+  const settings = snapshot.settings
+  const updateError = snapshot.errors.find((error) => error.source === "update")
+  const supported = snapshot.terminals.filter((terminal) => terminal.supported).length
+
+  const checks: Check[] = [
+    {
+      id: "ocshell",
+      label: "ocshell",
+      level: snapshot.ocshellPath ? "ok" : "error",
+      detail: snapshot.ocshellPath
+        ? snapshot.ocshellPath
+        : "ocshell.exe was not found on PATH.",
+    },
+    {
+      id: "package",
+      label: "Package",
+      level: doctor?.package.trim() ? "ok" : "warn",
+      detail: doctor?.package.trim() || "Open in OpenCode package not detected.",
+    },
+    {
+      id: "certificate",
+      label: "Certificate",
+      level: doctor?.certificate.trim() === "trusted" ? "ok" : "warn",
+      detail: doctor?.certificate.trim() || "Certificate state is unavailable.",
+    },
+    {
+      id: "opencode",
+      label: "opencode",
+      level: doctor?.binaryFound ? "ok" : "error",
+      detail: doctor?.binaryFound
+        ? `${doctor.binaryPath.trim()} (${doctor.binarySource.trim() || "unknown source"})`
+        : "opencode executable not found.",
+    },
+    {
+      id: "settings",
+      label: "Settings",
+      level:
+        settings && doctor?.settingsLoaded && !doctor.settingsWarning.trim() ? "ok" : "warn",
+      detail:
+        doctor?.settingsWarning.trim() ||
+        (settings ? doctor?.settingsPath.trim() || "loaded" : "settings are unavailable."),
+    },
+    {
+      id: "terminals",
+      label: "Terminals",
+      level: supported > 0 ? "ok" : "warn",
+      detail:
+        supported > 0
+          ? `${supported} supported of ${snapshot.terminals.length} detected.`
+          : "No supported terminals detected.",
+    },
+  ]
+
+  if (updateError) {
+    checks.push({
+      id: "update",
+      label: "Updates",
+      level: "warn",
+      detail: updateError.message,
+    })
+  } else if (snapshot.update) {
+    checks.push({
+      id: "update",
+      label: "Updates",
+      level: snapshot.update.updateAvailable ? "warn" : "ok",
+      detail: snapshot.update.updateAvailable
+        ? `${snapshot.update.available} available`
+        : "up to date",
+    })
+  } else {
+    checks.push({
+      id: "update",
+      label: "Updates",
+      level: "ok",
+      detail: "not checked",
+    })
+  }
+
+  return checks
+}
+
+export type CopyMethod = "osc52" | "clip" | "file"
+
+export type CopyResult =
+  | { ok: true; method: CopyMethod; path?: string }
+  | { ok: false; message: string }
+
+export type CopyDependencies = {
+  osc52(text: string): boolean
+  clip(text: string): Promise<boolean>
+  tempFile(text: string): Promise<string>
+}
+
+/**
+ * Copy in the same order as the host: OSC 52, then Windows `clip.exe`, then a
+ * temp file whose path the caller can show. Every step is injected so the
+ * fallback order is testable without a terminal.
+ */
+export async function copyText(
+  text: string,
+  dependencies: CopyDependencies,
+): Promise<CopyResult> {
+  try {
+    if (dependencies.osc52(text)) return { ok: true, method: "osc52" }
+  } catch {
+    // Fall through to the next transport.
+  }
+
+  try {
+    if (await dependencies.clip(text)) return { ok: true, method: "clip" }
+  } catch {
+    // Fall through to the temp file.
+  }
+
+  try {
+    const path = await dependencies.tempFile(text)
+    return { ok: true, method: "file", path }
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Could not copy the report.",
+    }
+  }
+}
+
 function text(value: string | null | undefined, fallback = "(none)"): string {
   if (value === null || value === undefined) return fallback
   const trimmed = value.trim()
@@ -32,8 +168,8 @@ export function buildReport(snapshot: Snapshot, generatedAt: Date = new Date()):
   const doctor = snapshot.doctor
   const settings = snapshot.settings
   const update = snapshot.update
-  const overall = health(doctor, settings, snapshot.terminals, update)
   const updateFailed = snapshot.errors.some((error) => error.source === "update")
+  const overall = health(doctor, settings, snapshot.terminals, update, updateFailed)
 
   const lines: string[] = []
 

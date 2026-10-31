@@ -64,7 +64,7 @@ export function buildRows(snapshot: Snapshot): RowModel {
   const settings = snapshot.settings
   const updateFailed = snapshot.errors.some((error) => error.source === "update")
   const updateError = snapshot.errors.find((error) => error.source === "update")
-  const overall = health(doctor, settings, snapshot.terminals, snapshot.update)
+  const overall = health(doctor, settings, snapshot.terminals, snapshot.update, updateFailed)
 
   const missingOcshell = !snapshot.ocshellPath
   const missingSettings = !settings
