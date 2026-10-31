@@ -173,6 +173,21 @@ template is listed with `*` and can still be used through `terminal.mode=custom`
 
 Argument templates understand `{dir}`, `{command}`, `{commandline}` and `{pscommand}`.
 
+## Inside opencode
+
+An optional plugin adds a `/ocshell` command to the opencode TUI: show settings, change the
+terminal, override the opencode path, and check for updates.
+
+```powershell
+.\scripts\install-plugin.ps1              # -> %USERPROFILE%\.config\opencode\plugins\opencode-shell
+.\scripts\install-plugin.ps1 -Uninstall
+```
+
+Restart opencode, then run `/ocshell`.
+
+The plugin is a thin front end over `ocshell.exe` and never the only way in — the settings it
+edits are needed before opencode can even start.
+
 ## Updates
 
 Updates use the standard MSIX `.appinstaller` mechanism — there is no custom updater.
@@ -272,7 +287,8 @@ packaging\appinstaller.template.xml   auto-update manifest (rendered per release
 packaging\Assets\            package logos
 installer\openshell.iss      Inno Setup installer
 installer\install-package.ps1   cert trust + Add-AppxPackage (also standalone)
-scripts\                     build / package / sign / installer / appinstaller / install / uninstall
+plugin\tui.ts                optional opencode plugin (/ocshell)
+scripts\                     build / package / sign / installer / appinstaller / plugin / install
 tests\menu-smoke-test.ps1    end-to-end menu smoke test
 tests\com-activation.ps1     headless COM activation check (ARM64 CI)
 .github\workflows\           arm64 verification, signed release

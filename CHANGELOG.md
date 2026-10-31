@@ -8,7 +8,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this pr
 
 ### Added
 
-- opencode plugin surface for settings.
+- Optional opencode plugin (`plugin/tui.ts`) exposing a `/ocshell` command in the TUI for
+  settings, terminal choice and update checks, installed with `scripts/install-plugin.ps1`.
 
 ## [0.6.0] - 2026-10-31
 
