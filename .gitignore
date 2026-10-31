@@ -1,0 +1,19 @@
+# build output
+dist/
+.build/
+*.res
+*.obj
+
+# editor / tooling
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# local logs (the extension logs to %LOCALAPPDATA%, never here)
+*.log
+
+# OS noise
+Thumbs.db
+desktop.ini
