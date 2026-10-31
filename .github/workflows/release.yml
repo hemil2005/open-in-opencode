@@ -38,10 +38,17 @@ jobs:
           PFX_BASE64: ${{ secrets.SIGNING_PFX_BASE64 }}
           PFX_PASSWORD: ${{ secrets.SIGNING_PFX_PASSWORD }}
         run: |
-          if (-not $env:PFX_BASE64) { throw 'SIGNING_PFX_BASE64 is not configured' }
           New-Item -ItemType Directory -Force .secrets | Out-Null
-          [IO.File]::WriteAllBytes('.secrets/OpenInOpenCode.pfx', [Convert]::FromBase64String($env:PFX_BASE64))
-          Set-Content -Path '.secrets/password.txt' -Value $env:PFX_PASSWORD -NoNewline
+          if ($env:PFX_BASE64) {
+            [IO.File]::WriteAllBytes('.secrets/OpenInOpenCode.pfx', [Convert]::FromBase64String($env:PFX_BASE64))
+            Set-Content -Path '.secrets/password.txt' -Value $env:PFX_PASSWORD -NoNewline
+            Write-Host 'using the signing certificate from repository secrets'
+          } else {
+            # Self-contained fallback: the release still installs because install.ps1 trusts the
+            # published .cer. Set the secrets above for a stable signer across releases.
+            Write-Host 'no signing secrets configured; generating a self-signed certificate for this release'
+            ./scripts/new-cert.ps1 -Force
+          }
 
       - name: Export public certificate
         shell: pwsh
@@ -51,6 +58,12 @@ jobs:
               '.secrets/OpenInOpenCode.pfx', $password)
           [IO.File]::WriteAllBytes('.secrets/OpenInOpenCode.cer',
               $certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert))
+
+      - name: Trust the signing certificate
+        shell: pwsh
+        run: |
+          Import-Certificate -FilePath .secrets/OpenInOpenCode.cer -CertStoreLocation Cert:\LocalMachine\TrustedPeople | Out-Null
+          Write-Host 'certificate trusted, so signtool verify can validate the chain'
 
       - name: Build, sign and bundle
         shell: pwsh
