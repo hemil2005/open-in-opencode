@@ -21,7 +21,7 @@
     Overrides both URIs, e.g. http://localhost:8791 for local testing.
 
 .EXAMPLE
-    .\scripts\make-appinstaller.ps1 -Repo hemil/opencode-shell
+    .\scripts\make-appinstaller.ps1 -Repo hemil2005/open-in-opencode
 #>
 [CmdletBinding()]
 param(
