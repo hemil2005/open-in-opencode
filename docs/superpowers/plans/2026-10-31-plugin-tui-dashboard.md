@@ -1,6 +1,6 @@
 # Plugin TUI Dashboard — Implementation Plan
 
-**Status:** Draft for review. Plan only; no plugin code has been changed.
+**Status:** Approved. Phases 0-1 are committed; Phase 2 is implemented and locally verified, pending commit.
 **Date:** 2026-10-31
 **Scope:** `plugin/`, `scripts/install-plugin.ps1`, plugin tooling, plugin CI, plugin docs.
 **Out of scope:** the Windows context-menu extension, the MSIX installer, the CLI launch path, and any release/publish step.
@@ -677,6 +677,8 @@ Acceptance:
 - A hung fake child resolves as `timedOut` and does not block the test process.
 - The runner returns typed errors, not thrown strings.
 
+**Phase 2 results (2026-10-31):** `plugin/lib/types.ts`, `plugin/lib/ocshell.ts`, and `plugin/test/ocshell.test.ts` are implemented. `bun run typecheck` and `bun test` pass locally (19 tests across 2 files, 51 assertions). The tests cover success, non-zero exit, invalid JSON, `allowNonZero`, timeout, abort, pre-aborted signal, missing binary, truncation, split UTF-8, `reset()` re-resolution, and resolver precedence. `grep` finds no `spawnSync` in `lib/`. A live smoke check against `ocshell.exe` 0.7.0.1 resolved the WindowsApps alias and decoded `doctor`, `settings list`, and `settings terminals`; `update check` returned the expected typed `exit` error because `updateUri` is empty. `plugin/tui.ts` still uses `spawnSync` until Phase 4.
+
 Commit: `feat(plugin): add async ocshell runner`.
 
 ### Phase 3 — Pure formatting, rows, and report
@@ -721,6 +723,8 @@ Acceptance:
 - No Solid or Node imports in `format.ts` or `rows.ts`.
 - Tests run in milliseconds.
 - The row model is the single source of truth for labels, values, tones, and disabled reasons.
+
+**Phase 3 results (2026-10-31):** `plugin/lib/format.ts`, `plugin/ui/rows.ts`, `plugin/lib/report.ts`, and their tests are implemented. `bun run typecheck` passes; `bun test` passes 71 tests across 5 files (316 assertions) in roughly 0.2 s. `format.ts` and `rows.ts` contain no Solid or Node imports. The row model covers the four sections, live values, tones, disabled reasons, conditional custom rows, and health states. The report includes every doctor/settings/terminal/update field and never renders `undefined`.
 
 Commit: `feat(plugin): add dashboard row model and formatters`.
 
