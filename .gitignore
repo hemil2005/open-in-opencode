@@ -17,6 +17,8 @@ src/generated/
 .idea/
 *.user
 *.suo
+node_modules/
+plugin/coverage/
 
 # local logs (the extension logs to %LOCALAPPDATA%, never here)
 *.log

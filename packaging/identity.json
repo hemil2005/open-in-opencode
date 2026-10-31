@@ -2,6 +2,6 @@
   "name": "OpenInOpenCode",
   "publisher": "CN=OpenInOpenCodeDev",
   "displayName": "Open in OpenCode",
-  "version": "0.7.0.1",
-  "updateUri": ""
+  "version": "0.8.0.0",
+  "updateUri": "https://github.com/hemil2005/open-in-opencode/releases/latest/download/OpenInOpenCode.appinstaller"
 }

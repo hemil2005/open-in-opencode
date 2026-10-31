@@ -133,6 +133,7 @@ $core = @(
     'src\core\paths.cpp',
     'src\core\log.cpp',
     'src\core\settings.cpp',
+    'src\core\launch_options.cpp',
     'src\core\terminals.cpp',
     'src\core\binary.cpp',
     'src\core\registry.cpp',

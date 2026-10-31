@@ -8,8 +8,11 @@
 
 #include <new>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "core/launch.hpp"
+#include "core/launch_options.hpp"
 #include "core/log.hpp"
 #include "core/paths.hpp"
 #include "core/settings.hpp"
@@ -20,22 +23,8 @@ namespace {
 const GUID kClsid = {0x6f3a1c2e, 0x5b4d, 0x4a8e, {0x9c, 0x71, 0x3d, 0x2f, 0x8b, 0x0a, 0x6e, 0x54}};
 
 constexpr wchar_t kTitle[] = L"Open in OpenCode";
-constexpr int kParent = -1;
 
 HINSTANCE g_instance = nullptr;
-
-struct Variant {
-  const wchar_t *title;
-  const wchar_t *args;
-  const wchar_t *tip;
-};
-
-const Variant kVariants[] = {
-    {L"New session", L"", L"Start a new session in this folder"},
-    {L"Continue last session", L"--continue", L"Resume the most recent session in this folder"},
-    {L"Skip permission prompts", L"--auto", L"Auto-approve permissions that are not explicitly denied"},
-};
-constexpr size_t kChildCount = sizeof(kVariants) / sizeof(kVariants[0]);
 
 bool DebugEnabled() {
   wchar_t value[8] = {};
@@ -65,11 +54,27 @@ void Report(const std::wstring &message) {
   MessageBoxW(nullptr, message.c_str(), L"Open in OpenCode", MB_ICONWARNING | MB_OK);
 }
 
+std::wstring OptionTip(const oc::LaunchOption &option) {
+  if (option.builtin) {
+    if (option.id == L"new") return L"Start a new session in this folder";
+    if (option.id == L"continue") return L"Resume the most recent session in this folder";
+    if (option.id == L"skip") {
+      return L"Auto-approve permissions that are not explicitly denied";
+    }
+  }
+  return option.flags.empty() ? L"Launch opencode" : L"Launch with " + option.flags;
+}
+
 }  // namespace
 
 class Command final : public IExplorerCommand {
  public:
-  explicit Command(int variant) : ref_(1), variant_(variant) {}
+  Command(bool parent, std::wstring title, std::wstring flags, std::wstring tip)
+      : ref_(1),
+        parent_(parent),
+        title_(std::move(title)),
+        flags_(std::move(flags)),
+        tip_(std::move(tip)) {}
 
   IFACEMETHODIMP QueryInterface(REFIID riid, void **out) override {
     if (!out) return E_POINTER;
@@ -89,9 +94,8 @@ class Command final : public IExplorerCommand {
   }
 
   IFACEMETHODIMP GetTitle(IShellItemArray *, PWSTR *name) override {
-    const wchar_t *title = (variant_ == kParent) ? kTitle : kVariants[variant_].title;
-    if (DebugEnabled()) oc::Log(oc::LogLevel::Debug, std::wstring(L"title: ") + title);
-    return SHStrDupW(title, name);
+    if (DebugEnabled()) oc::Log(oc::LogLevel::Debug, std::wstring(L"title: ") + title_);
+    return SHStrDupW(title_.c_str(), name);
   }
 
   IFACEMETHODIMP GetIcon(IShellItemArray *, PWSTR *icon) override {
@@ -104,11 +108,11 @@ class Command final : public IExplorerCommand {
   }
 
   IFACEMETHODIMP GetToolTip(IShellItemArray *, PWSTR *tip) override {
-    if (variant_ == kParent) {
+    if (parent_ || tip_.empty()) {
       *tip = nullptr;
       return E_NOTIMPL;
     }
-    return SHStrDupW(kVariants[variant_].tip, tip);
+    return SHStrDupW(tip_.c_str(), tip);
   }
 
   IFACEMETHODIMP GetCanonicalName(GUID *guid) override {
@@ -124,26 +128,45 @@ class Command final : public IExplorerCommand {
       *state = ECS_HIDDEN;
       return S_OK;
     }
+
+    if (parent_) {
+      oc::Settings settings;
+      std::wstring warning;
+      oc::LoadSettings(&settings, &warning);
+      if (oc::VisibleLaunchOptions(settings).empty()) {
+        *state = ECS_HIDDEN;
+        return S_OK;
+      }
+    }
+
     *state = ECS_ENABLED;
     return S_OK;
   }
 
   IFACEMETHODIMP GetFlags(EXPCMDFLAGS *flags) override {
     // Without ECF_HASSUBCOMMANDS the shell never calls EnumSubCommands and no chevron appears.
-    *flags = (variant_ == kParent) ? ECF_HASSUBCOMMANDS : ECF_DEFAULT;
+    *flags = parent_ ? ECF_HASSUBCOMMANDS : ECF_DEFAULT;
     return S_OK;
   }
 
   IFACEMETHODIMP EnumSubCommands(IEnumExplorerCommand **commands) override {
-    if (variant_ != kParent) {
+    if (!parent_) {
       *commands = nullptr;
       return E_NOTIMPL;
     }
-    *commands = new (std::nothrow) CommandEnumerator(0);
+
+    oc::Settings settings;
+    std::wstring warning;
+    oc::LoadSettings(&settings, &warning);
+    if (!warning.empty()) oc::Log(oc::LogLevel::Warn, warning);
+
+    *commands = new (std::nothrow) CommandEnumerator(oc::VisibleLaunchOptions(settings));
     return *commands ? S_OK : E_OUTOFMEMORY;
   }
 
   IFACEMETHODIMP Invoke(IShellItemArray *items, IBindCtx *) override {
+    if (parent_) return S_OK;
+
     std::wstring directory = FirstPath(items);
     if (directory.empty()) {
       oc::Log(oc::LogLevel::Warn, L"invoke without a filesystem path");
@@ -156,12 +179,9 @@ class Command final : public IExplorerCommand {
     oc::SetVerboseLogging(settings.logging || DebugEnabled());
     if (!warning.empty()) oc::Log(oc::LogLevel::Warn, warning);
 
-    std::wstring args;
-    if (variant_ != kParent) args = kVariants[variant_].args;
-
     std::wstring detail;
     std::wstring error;
-    if (!oc::Launch(settings, directory, args, &detail, &error)) {
+    if (!oc::Launch(settings, directory, flags_, &detail, &error)) {
       Report(error);
       return S_OK;
     }
@@ -172,7 +192,8 @@ class Command final : public IExplorerCommand {
  private:
   class CommandEnumerator final : public IEnumExplorerCommand {
    public:
-    explicit CommandEnumerator(ULONG index) : ref_(1), index_(index) {}
+    explicit CommandEnumerator(std::vector<oc::LaunchOption> options)
+        : ref_(1), index_(0), options_(std::move(options)) {}
 
     IFACEMETHODIMP QueryInterface(REFIID riid, void **out) override {
       if (!out) return E_POINTER;
@@ -193,8 +214,10 @@ class Command final : public IExplorerCommand {
 
     IFACEMETHODIMP Next(ULONG requested, IExplorerCommand **out, ULONG *fetched) override {
       ULONG taken = 0;
-      while (taken < requested && index_ < kChildCount) {
-        out[taken] = new (std::nothrow) Command(static_cast<int>(index_));
+      while (taken < requested && index_ < options_.size()) {
+        const oc::LaunchOption &option = options_[index_];
+        out[taken] = new (std::nothrow)
+            Command(false, option.label, option.flags, OptionTip(option));
         if (!out[taken]) break;
         ++taken;
         ++index_;
@@ -204,7 +227,7 @@ class Command final : public IExplorerCommand {
     }
     IFACEMETHODIMP Skip(ULONG count) override {
       index_ += count;
-      if (index_ > kChildCount) index_ = kChildCount;
+      if (index_ > options_.size()) index_ = options_.size();
       return S_OK;
     }
     IFACEMETHODIMP Reset() override {
@@ -213,17 +236,21 @@ class Command final : public IExplorerCommand {
     }
     IFACEMETHODIMP Clone(IEnumExplorerCommand **out) override {
       if (!out) return E_POINTER;
-      *out = new (std::nothrow) CommandEnumerator(index_);
+      *out = new (std::nothrow) CommandEnumerator(options_);
       return *out ? S_OK : E_OUTOFMEMORY;
     }
 
    private:
     ULONG ref_;
-    ULONG index_;
+    size_t index_;
+    std::vector<oc::LaunchOption> options_;
   };
 
   LONG ref_;
-  int variant_;
+  bool parent_;
+  std::wstring title_;
+  std::wstring flags_;
+  std::wstring tip_;
 };
 
 class Factory final : public IClassFactory {
@@ -248,7 +275,7 @@ class Factory final : public IClassFactory {
   }
   IFACEMETHODIMP CreateInstance(IUnknown *outer, REFIID riid, void **out) override {
     if (outer) return CLASS_E_NOAGGREGATION;
-    Command *command = new (std::nothrow) Command(kParent);
+    Command *command = new (std::nothrow) Command(true, kTitle, L"", L"");
     if (!command) return E_OUTOFMEMORY;
     HRESULT hr = command->QueryInterface(riid, out);
     command->Release();

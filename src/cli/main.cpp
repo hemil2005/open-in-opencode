@@ -53,19 +53,27 @@ int Fail(const std::wstring& message) {
   return 1;
 }
 
+std::wstring JoinFrom(const std::vector<std::wstring>& arguments, size_t start) {
+  std::wstring value;
+  for (size_t i = start; i < arguments.size(); ++i) {
+    if (i > start) value += L' ';
+    value += arguments[i];
+  }
+  return value;
+}
+
 int CommandLaunch(const std::vector<std::wstring>& arguments) {
   std::wstring directory;
   std::wstring flags;
 
   for (size_t i = 2; i < arguments.size(); ++i) {
     const std::wstring& argument = arguments[i];
-    if (argument == L"--continue") {
-      flags += L" --continue";
-    } else if (argument == L"--auto") {
-      flags += L" --auto";
-    } else if (directory.empty()) {
+    if (directory.empty() && (argument.empty() || argument[0] != L'-')) {
       directory = argument;
+      continue;
     }
+    if (!flags.empty()) flags += L' ';
+    flags += argument;
   }
 
   if (directory.empty()) return Fail(L"launch requires a directory");
@@ -155,6 +163,107 @@ int CommandSettingsSet(const std::vector<std::wstring>& arguments) {
   if (!oc::SaveSettings(settings, &error)) return Fail(error);
   Line(L"updated " + key);
   return 0;
+}
+
+int SaveLaunchOptions(const oc::Settings& settings) {
+  std::wstring error;
+  if (!oc::SaveSettings(settings, &error)) return Fail(error);
+
+  // Windows 10 uses registry verbs; Windows 11's packaged extension reads settings live.
+  if (oc::RegistryVerbsInstalled()) {
+    if (!oc::InstallRegistryVerbs(settings, &error)) {
+      return Fail(L"launch options were saved, but the Windows 10 menu could not be refreshed: " +
+                  error);
+    }
+  }
+  return 0;
+}
+
+int CommandSettingsLaunch(const std::vector<std::wstring>& arguments) {
+  if (arguments.size() < 4) {
+    return Fail(L"usage: ocshell settings launch list|add|update|hide|move|remove ...");
+  }
+
+  const std::wstring& action = arguments[3];
+  oc::Settings settings;
+  std::wstring warning;
+  oc::LoadSettings(&settings, &warning);
+  if (!warning.empty()) Error(L"warning: " + warning);
+
+  if (action == L"list") {
+    if (HasFlag(arguments, L"--json")) {
+      oc::json::Value all = oc::SettingsToJson(settings);
+      oc::json::Value options = oc::json::Value::MakeArray();
+      if (const oc::json::Value* found = all.Find(L"launchOptions")) options = *found;
+      Line(oc::json::Write(options, true));
+    } else {
+      Write(oc::DescribeLaunchOptions(oc::NormalizeLaunchOptions(settings.launchOptions)));
+    }
+    return 0;
+  }
+
+  std::wstring error;
+
+  if (action == L"add") {
+    if (arguments.size() < 6) return Fail(L"usage: ocshell settings launch add <label> <flags>");
+    std::wstring id;
+    if (!oc::AddLaunchOption(&settings, arguments[4], JoinFrom(arguments, 5), &id, &error)) {
+      return Fail(error);
+    }
+    const int saved = SaveLaunchOptions(settings);
+    if (saved != 0) return saved;
+    Line(L"added " + id);
+    return 0;
+  }
+
+  if (action == L"update") {
+    if (arguments.size() < 7) {
+      return Fail(L"usage: ocshell settings launch update <id> <label> <flags>");
+    }
+    if (!oc::UpdateLaunchOption(&settings, arguments[4], arguments[5], JoinFrom(arguments, 6),
+                                &error)) {
+      return Fail(error);
+    }
+    const int saved = SaveLaunchOptions(settings);
+    if (saved != 0) return saved;
+    Line(L"updated " + arguments[4]);
+    return 0;
+  }
+
+  if (action == L"hide") {
+    if (arguments.size() < 6) return Fail(L"usage: ocshell settings launch hide <id> <true|false>");
+    bool hidden = false;
+    if (!ParseBool(arguments[5], &hidden)) return Fail(L"expected true or false");
+    if (!oc::SetLaunchOptionHidden(&settings, arguments[4], hidden, &error)) return Fail(error);
+    const int saved = SaveLaunchOptions(settings);
+    if (saved != 0) return saved;
+    Line(L"updated " + arguments[4]);
+    return 0;
+  }
+
+  if (action == L"move") {
+    if (arguments.size() < 6) return Fail(L"usage: ocshell settings launch move <id> up|down");
+    const std::wstring& direction = arguments[5];
+    if (direction != L"up" && direction != L"down") return Fail(L"expected up or down");
+    if (!oc::MoveLaunchOption(&settings, arguments[4], direction == L"up", &error)) {
+      return Fail(error);
+    }
+    const int saved = SaveLaunchOptions(settings);
+    if (saved != 0) return saved;
+    Line(L"moved " + arguments[4]);
+    return 0;
+  }
+
+  if (action == L"remove") {
+    if (arguments.size() < 5) return Fail(L"usage: ocshell settings launch remove <id>");
+    if (!oc::RemoveLaunchOption(&settings, arguments[4], &error)) return Fail(error);
+    const int saved = SaveLaunchOptions(settings);
+    if (saved != 0) return saved;
+    Line(L"removed " + arguments[4]);
+    return 0;
+  }
+
+  return Fail(L"unknown launch action: " + action);
 }
 
 int CommandSettingsTerminals(const std::vector<std::wstring>& arguments) {
@@ -367,6 +476,43 @@ int CommandSelfTest() {
                                       restored.logging);
   }
 
+  // Launch options
+  {
+    oc::Settings settings;
+    std::wstring id;
+    std::wstring error;
+
+    check(L"launch options default", settings.launchOptions.size() == 3);
+    check(L"launch flags validation",
+          oc::ValidateLaunchFlags(L"--continue", nullptr) &&
+              !oc::ValidateLaunchFlags(L"continue", nullptr));
+    check(L"add launch option",
+          oc::AddLaunchOption(&settings, L"Fast model", L"--model fast", &id, &error) &&
+              id == L"custom-1");
+    check(L"hide launch option",
+          oc::SetLaunchOptionHidden(&settings, L"continue", true, &error));
+    check(L"move launch option", oc::MoveLaunchOption(&settings, id, true, &error));
+
+    oc::Settings restored = oc::SettingsFromJson(oc::SettingsToJson(settings));
+    const oc::LaunchOption* custom = oc::FindLaunchOption(restored.launchOptions, L"custom-1");
+    const oc::LaunchOption* cont = oc::FindLaunchOption(restored.launchOptions, L"continue");
+    check(L"launch options round trip", custom && custom->label == L"Fast model" &&
+                                            custom->flags == L"--model fast" && cont &&
+                                            cont->hidden);
+    check(L"visible launch options", oc::VisibleLaunchOptions(restored).size() == 3);
+
+    oc::Settings limited;
+    std::wstring limit_id;
+    std::wstring limit_error;
+    const bool first_three =
+        oc::AddLaunchOption(&limited, L"One", L"--one", &limit_id, &limit_error) &&
+        oc::AddLaunchOption(&limited, L"Two", L"--two", &limit_id, &limit_error) &&
+        oc::AddLaunchOption(&limited, L"Three", L"--three", &limit_id, &limit_error);
+    check(L"custom option limit",
+          first_three &&
+              !oc::AddLaunchOption(&limited, L"Four", L"--four", &limit_id, &limit_error));
+  }
+
   // Argument splitting and command line quoting
   {
     std::vector<std::wstring> split = oc::SplitArguments(L"a \"b c\" d");
@@ -575,8 +721,13 @@ int CommandRegistry(const std::vector<std::wstring>& arguments) {
       return Fail(L"registry verbs target Windows 10; Windows 11 uses the packaged menu.\n"
                   L"Pass --force to add the classic entry as well (it shows under Show more options).");
     }
+    oc::Settings settings;
+    std::wstring warning;
+    oc::LoadSettings(&settings, &warning);
+    if (!warning.empty()) Error(L"warning: " + warning);
+
     std::wstring error;
-    if (!oc::InstallRegistryVerbs(&error)) return Fail(error);
+    if (!oc::InstallRegistryVerbs(settings, &error)) return Fail(error);
     Line(L"registry verbs installed");
     return 0;
   }
@@ -599,6 +750,12 @@ void Usage() {
   Line(L"  ocshell settings set <key> <value>");
   Line(L"  ocshell settings terminals [--json]");
   Line(L"  ocshell settings locate-binary");
+  Line(L"  ocshell settings launch list [--json]");
+  Line(L"  ocshell settings launch add <label> <flags>");
+  Line(L"  ocshell settings launch update <id> <label> <flags>");
+  Line(L"  ocshell settings launch hide <id> <true|false>");
+  Line(L"  ocshell settings launch move <id> up|down");
+  Line(L"  ocshell settings launch remove <id>");
   Line(L"  ocshell doctor [--json]");
   Line(L"  ocshell update check [--json]");
   Line(L"  ocshell update apply");
@@ -608,6 +765,7 @@ void Usage() {
   Line(L"");
   Line(L"keys: binaryPath, updateUri, terminal.mode, terminal.id, terminal.customPath,");
   Line(L"      terminal.customArgs, continueFromProjectRoot, logging");
+  Line(L"launch options: add, update, hide, move and remove custom context-menu entries.");
 }
 
 }  // namespace
@@ -646,6 +804,7 @@ int main() {
     if (sub == L"set") return CommandSettingsSet(arguments);
     if (sub == L"terminals") return CommandSettingsTerminals(arguments);
     if (sub == L"locate-binary") return CommandSettingsLocate();
+    if (sub == L"launch") return CommandSettingsLaunch(arguments);
   }
 
   Usage();

@@ -2,10 +2,12 @@
 
 #include <windows.h>
 
+#include <string>
 #include <vector>
 
+#include "core/launch_options.hpp"
 #include "core/paths.hpp"
-#include "core/terminals.hpp"
+#include "core/settings.hpp"
 
 namespace oc {
 namespace {
@@ -23,19 +25,6 @@ const Target kTargets[] = {
     {L"DesktopBackground", L"%V"},
 };
 
-struct Child {
-  const wchar_t* key;
-  const wchar_t* label;
-  const wchar_t* suffix;
-};
-
-// Numeric prefixes give a deterministic order: classic submenus sort by key name.
-const Child kChildren[] = {
-    {L"10New", L"New session", L""},
-    {L"20Continue", L"Continue last session", L" --continue"},
-    {L"30Skip", L"Skip permission prompts", L" --auto"},
-};
-
 bool SetString(HKEY key, const wchar_t* name, const std::wstring& value) {
   const DWORD bytes = static_cast<DWORD>((value.size() + 1) * sizeof(wchar_t));
   return RegSetValueExW(key, name, 0, REG_SZ, reinterpret_cast<const BYTE*>(value.c_str()), bytes) ==
@@ -46,9 +35,19 @@ std::wstring VerbRoot(const Target& target) {
   return std::wstring(L"Software\\Classes\\") + target.key + L"\\shell\\OpenCode";
 }
 
-std::wstring LaunchCommand(const std::wstring& exe, const wchar_t* token, const wchar_t* suffix) {
+// Classic submenus sort by key name. Three-digit prefixes preserve the configured order.
+std::wstring ChildKey(size_t index) {
+  std::wstring value = std::to_wstring(index + 1);
+  while (value.size() < 3) value.insert(value.begin(), L'0');
+  return value;
+}
+
+std::wstring LaunchCommand(const std::wstring& exe, const wchar_t* token,
+                           const std::wstring& flags) {
   // Windows substitutes the token verbatim, so it has to be quoted for paths with spaces.
-  return L"\"" + exe + L"\" launch \"" + token + L"\"" + suffix;
+  std::wstring command = L"\"" + exe + L"\" launch \"" + token + L"\"";
+  if (!flags.empty()) command += L" " + flags;
+  return command;
 }
 
 }  // namespace
@@ -68,12 +67,14 @@ bool IsWindows11OrGreater() {
   return info.dwBuildNumber >= 22000;
 }
 
-bool InstallRegistryVerbs(std::wstring* error) {
+bool InstallRegistryVerbs(const Settings& settings, std::wstring* error) {
   const std::wstring exe = ModulePath(nullptr);
   if (exe.empty()) {
     if (error) *error = L"cannot determine the ocshell.exe path";
     return false;
   }
+
+  const std::vector<LaunchOption> options = VisibleLaunchOptions(settings);
 
   for (const auto& target : kTargets) {
     const std::wstring root = VerbRoot(target);
@@ -85,41 +86,51 @@ bool InstallRegistryVerbs(std::wstring* error) {
       return false;
     }
 
-    bool ok = SetString(parent, L"MUIVerb", L"Open in OpenCode") &&
-              SetString(parent, L"Icon", exe + L",0") &&
-              // An empty SubCommands turns the entry into a cascade built from the shell key.
-              SetString(parent, L"SubCommands", L"");
+    const bool parent_ok =
+        SetString(parent, L"MUIVerb", L"Open in OpenCode") &&
+        SetString(parent, L"Icon", exe + L",0") &&
+        // An empty SubCommands turns the entry into a cascade built from the shell key.
+        SetString(parent, L"SubCommands", L"");
     RegCloseKey(parent);
-    if (!ok) {
+    if (!parent_ok) {
       if (error) *error = L"cannot write values under " + root;
       return false;
     }
 
-    for (const auto& child : kChildren) {
-      const std::wstring childKey = root + L"\\shell\\" + child.key;
+    const std::wstring shell_root = root + L"\\shell";
+    const LONG deleted = RegDeleteTreeW(HKEY_CURRENT_USER, shell_root.c_str());
+    if (deleted != ERROR_SUCCESS && deleted != ERROR_FILE_NOT_FOUND) {
+      if (error) *error = L"cannot clear old launch options under " + shell_root;
+      return false;
+    }
+
+    for (size_t index = 0; index < options.size(); ++index) {
+      const std::wstring child_key = shell_root + L"\\" + ChildKey(index);
       HKEY key = nullptr;
-      if (RegCreateKeyExW(HKEY_CURRENT_USER, childKey.c_str(), 0, nullptr, 0, KEY_WRITE, nullptr, &key,
-                          nullptr) != ERROR_SUCCESS) {
-        if (error) *error = L"cannot create " + childKey;
-        return false;
-      }
-      ok = SetString(key, L"MUIVerb", child.label);
-      RegCloseKey(key);
-      if (!ok) {
-        if (error) *error = L"cannot write MUIVerb under " + childKey;
+      if (RegCreateKeyExW(HKEY_CURRENT_USER, child_key.c_str(), 0, nullptr, 0, KEY_WRITE, nullptr,
+                          &key, nullptr) != ERROR_SUCCESS) {
+        if (error) *error = L"cannot create " + child_key;
         return false;
       }
 
-      const std::wstring commandKey = childKey + L"\\command";
-      if (RegCreateKeyExW(HKEY_CURRENT_USER, commandKey.c_str(), 0, nullptr, 0, KEY_WRITE, nullptr, &key,
-                          nullptr) != ERROR_SUCCESS) {
-        if (error) *error = L"cannot create " + commandKey;
+      const bool label_ok = SetString(key, L"MUIVerb", options[index].label);
+      RegCloseKey(key);
+      if (!label_ok) {
+        if (error) *error = L"cannot write MUIVerb under " + child_key;
         return false;
       }
-      ok = SetString(key, nullptr, LaunchCommand(exe, target.token, child.suffix));
+
+      const std::wstring command_key = child_key + L"\\command";
+      if (RegCreateKeyExW(HKEY_CURRENT_USER, command_key.c_str(), 0, nullptr, 0, KEY_WRITE, nullptr,
+                          &key, nullptr) != ERROR_SUCCESS) {
+        if (error) *error = L"cannot create " + command_key;
+        return false;
+      }
+      const bool command_ok =
+          SetString(key, nullptr, LaunchCommand(exe, target.token, options[index].flags));
       RegCloseKey(key);
-      if (!ok) {
-        if (error) *error = L"cannot write the command under " + commandKey;
+      if (!command_ok) {
+        if (error) *error = L"cannot write the command under " + command_key;
         return false;
       }
     }

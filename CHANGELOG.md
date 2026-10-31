@@ -6,6 +6,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this pr
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-31
+
+### Added
+
+- Built-in update source: `ocshell update check|apply` now defaults to the published
+  `.appinstaller`, so updates work without setting `updateUri` manually.
+- Full-page `/ocshell` dashboard in the optional opencode plugin: health, live paths,
+  terminal choice, every setting, update state and diagnostics.
+- Searchable terminal picker, validated `opencode` and custom-terminal paths, update-source
+  validation and a diagnostics report with OSC 52 / `clip.exe` / temp-file fallbacks.
+- Custom Explorer launch options: up to three custom entries with user-entered flags, plus
+  hide/show and reordering for both built-in and custom entries. Windows 11 reads the ordered
+  list live; Windows 10 registry verbs refresh after each change.
+- `ocshell settings launch list|add|update|hide|move|remove` for scripting the same menu.
+- Async `ocshell` runner with per-call timeouts, abort support, 1 MiB per-stream output caps
+  and typed errors. The plugin no longer blocks the TUI with `spawnSync`.
+- Bun/TypeScript test tooling, plugin CI and an installer layout smoke check.
+
+### Changed
+
+- `scripts/install-plugin.ps1` now installs `tui.ts`, `lib/` and `ui/`, and removes stale
+  runtime directories before copying. Tooling and tests stay out of the installed plugin.
+- The plugin requires OpenCode 2.2.5 or newer.
+
 ## [0.7.0.1] - 2026-10-31
 
 ### Changed
