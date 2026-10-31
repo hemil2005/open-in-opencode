@@ -8,9 +8,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this pr
 
 ### Added
 
-- ARM64 build output for an MSIX bundle.
+- `.appinstaller` auto-update.
+- Inno Setup installer.
 - CI pipeline producing the bundle.
 - License.
+
+## [0.3.0] - 2026-10-31
+
+### Added
+
+- MSIX bundle for x64 **and** arm64 (`scripts/package.ps1`), packed with MakeAppx from the
+  `Microsoft.Windows.SDK.BuildTools` NuGet package, so the Windows SDK is not needed.
+- Self-signed code-signing certificate (`scripts/new-cert.ps1`) and `scripts/sign.ps1` with
+  RFC3161 timestamping and verification.
+- `tests/com-activation.ps1`: headless COM activation check, used as the ARM64 verification.
+- `.github/workflows/arm64-verify.yml` (runs on `windows-11-arm`).
+- Manifest templating from `packaging/identity.json`; the manifest is rendered per
+  architecture by the build.
+
+### Changed
+
+- `build.ps1` takes `-Architecture` and `-OutDir`.
+- `install.ps1` gains `-Replace` to switch between a packaged and a loose install.
+- Verified: the signed bundle installs with **Developer Mode disabled** once the certificate
+  is trusted in `LocalMachine\TrustedPeople`, and upgrades in place across versions.
 
 ## [0.2.0] - 2026-10-31
 

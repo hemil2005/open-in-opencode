@@ -15,9 +15,10 @@ right-click a folder  →  Open in OpenCode ▸ New session
 
 ## Status
 
-Working and used daily on Windows 11 (build 26300). **Unsigned**, so it currently installs
-through Developer Mode only — see [Distribution](docs/distribution.md) for the public release
-plan.
+Working and used daily on Windows 11 (build 26300). Ships as a **signed MSIX bundle** for x64
+and arm64, using a self-signed certificate that the installer trusts — no Developer Mode
+needed. Public distribution (Store or a CA certificate) is still to come; see
+[Distribution](docs/distribution.md).
 
 ## Features
 
@@ -67,14 +68,44 @@ To remove:
 ## Build
 
 ```powershell
-.\scripts\build.ps1            # -> dist\
+.\scripts\build.ps1                              # x64 -> dist\
+.\scripts\build.ps1 -Architecture arm64 -OutDir stage\arm64
 .\scripts\build.ps1 -Clean
 .\scripts\build.ps1 -Compiler 'C:\msys64\mingw64\bin\x86_64-w64-mingw32-g++.exe'
 ```
 
+x64 uses mingw-w64; arm64 uses llvm-mingw (the only toolchain that targets Windows on ARM),
+looked up under `.tools\llvm`.
+
 `dist\` is a complete loose-package layout (`AppxManifest.xml`, `OpenCodeShell.dll`,
 `ocshell.exe`, placeholder exe, assets) ready for `Add-AppxPackage -Register`. It is
 git-ignored.
+
+## Package and sign
+
+```powershell
+.\scripts\new-cert.ps1          # one-time: self-signed code-signing cert -> .secrets\
+.\scripts\package.ps1           # x64 + arm64 -> out\OpenCodeShell_<version>.msixbundle
+.\scripts\package.ps1 -Sign     # also signs and verifies the bundle
+```
+
+`package.ps1 -InstallTools` fetches MakeAppx/SignTool from the
+`Microsoft.Windows.SDK.BuildTools` NuGet package into `.tools\`, so a full Windows SDK install
+is not required.
+
+Before the bundle will install, its certificate must be trusted by the machine (admin, once):
+
+```powershell
+Import-Certificate -FilePath .\.secrets\OpenCodeShell.cer `
+    -CertStoreLocation Cert:\LocalMachine\TrustedPeople
+```
+
+Trusted **People**, not Root, and not the user store — App Installer does not search user
+certificates. With that in place the package sideloads on a default Windows 11/10 machine:
+**Developer Mode is not required for a signed package**.
+
+A loose developer install and a packaged install of the same identity cannot coexist. Use
+`.\scripts\install.ps1 -Replace` to switch back to a loose build.
 
 ## Configuration
 

@@ -1,7 +1,20 @@
 # Distribution
 
-The extension works locally but is not yet shippable. This document records what is required,
-with current pricing and eligibility as of late 2026.
+The self-signed pipeline is now implemented and verified end to end; a public release still
+needs the installer, auto-update and (optionally) the Store. This document records what is
+required, with pricing and eligibility as of late 2026.
+
+## Current state
+
+- `scripts/new-cert.ps1` issues a self-signed code-signing certificate whose subject matches
+  `packaging/identity.json`.
+- `scripts/package.ps1 -Sign` produces a signed `x64 + arm64` MSIX bundle in `out/`.
+- Verified: the bundle installs with **Developer Mode disabled** once the certificate is
+  trusted in `LocalMachine\TrustedPeople`, and upgrades in place (`0.2.0.0 → 0.3.0.0`).
+- ARM64 is verified headlessly by `tests/com-activation.ps1` on a `windows-11-arm` runner.
+
+Still outstanding: `.appinstaller` auto-update, the Inno Setup installer, the Windows 10
+registry path, and the Store submission.
 
 ## The form factor is fixed
 

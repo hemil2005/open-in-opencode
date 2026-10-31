@@ -6,6 +6,7 @@
 #include <shobjidl.h>
 #include <shlwapi.h>
 
+#include <new>
 #include <string>
 
 #include "core/launch.hpp"

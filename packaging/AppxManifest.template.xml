@@ -1,15 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Package definition for OpenCodeShell.
-
-  The package is only a shell-extension host. It declares:
-    * one packaged COM class (the IExplorerCommand implementation), hosted out-of-process
-      by dllhost through com:SurrogateServer, so a crash cannot take down Explorer;
-    * one context-menu verb, registered for the two folder item types Windows allows.
-
-  MinVersion is Windows 11 (22000) on purpose: windows.fileExplorerContextMenus is only
-  honoured by the Windows 11 shell. On Windows 10 this package would install but never
-  appear, so it is blocked rather than silently useless.
+  Rendered by scripts/build.ps1 from packaging/identity.json.
+  Tokens: {{NAME}} {{PUBLISHER}} {{VERSION}} {{ARCH}} {{DISPLAY}}
 -->
 <Package
     xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
@@ -21,13 +13,13 @@
     IgnorableNamespaces="com desktop4 desktop5 rescap">
 
   <Identity
-      Name="OpenCodeShell"
-      Publisher="CN=OpenCodeShellDev"
-      Version="0.2.0.0"
-      ProcessorArchitecture="x64" />
+      Name="{{NAME}}"
+      Publisher="{{PUBLISHER}}"
+      Version="{{VERSION}}"
+      ProcessorArchitecture="{{ARCH}}" />
 
   <Properties>
-    <DisplayName>Open in OpenCode</DisplayName>
+    <DisplayName>{{DISPLAY}}</DisplayName>
     <PublisherDisplayName>OpenCodeShell</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
@@ -44,7 +36,7 @@
     <Application Id="App" Executable="noop.exe" EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
           AppListEntry="none"
-          DisplayName="Open in OpenCode"
+          DisplayName="{{DISPLAY}}"
           Description="Adds an Open in OpenCode entry to the File Explorer context menu."
           BackgroundColor="transparent"
           Square150x150Logo="Assets\Square150x150Logo.png"
@@ -53,7 +45,7 @@
       <Extensions>
         <com:Extension Category="windows.comServer">
           <com:ComServer>
-            <com:SurrogateServer DisplayName="Open in OpenCode">
+            <com:SurrogateServer DisplayName="{{DISPLAY}}">
               <com:Class
                   Id="6F3A1C2E-5B4D-4A8E-9C71-3D2F8B0A6E54"
                   Path="OpenCodeShell.dll"

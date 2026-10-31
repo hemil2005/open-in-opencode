@@ -1,0 +1,65 @@
+name: arm64-verify
+
+# Headless verification that the extension loads and activates on Windows on ARM.
+# The runner has no interactive shell, so the context menu itself cannot be exercised: the
+# test registers the package and activates the COM class directly, which is the part that
+# actually differs between architectures.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'packaging/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - '.github/workflows/arm64-verify.yml'
+
+jobs:
+  arm64:
+    runs-on: windows-11-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install llvm-mingw
+        shell: pwsh
+        run: |
+          $release = Invoke-RestMethod 'https://api.github.com/repos/mstorsjo/llvm-mingw/releases/latest'
+          $asset = $release.assets | Where-Object { $_.name -like '*ucrt-x86_64.zip' } | Select-Object -First 1
+          Write-Host "using $($asset.name)"
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile llvm-mingw.zip
+          Expand-Archive -Path llvm-mingw.zip -DestinationPath .tools/llvm -Force
+
+      - name: Build arm64
+        shell: pwsh
+        run: ./scripts/build.ps1 -Architecture arm64 -OutDir dist-arm64 -Clean
+
+      - name: Assert PE machine type
+        shell: pwsh
+        run: |
+          $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path './dist-arm64/OpenCodeShell.dll'))
+          $pe = [BitConverter]::ToInt32($bytes, 0x3C)
+          $machine = [BitConverter]::ToUInt16($bytes, $pe + 4)
+          Write-Host ("PE machine: 0x{0:X4}" -f $machine)
+          if ($machine -ne 0xAA64) { throw "expected ARM64 (0xAA64), got 0x$('{0:X4}' -f $machine)" }
+
+      - name: Enable Developer Mode
+        shell: pwsh
+        run: |
+          Set-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock' `
+                           -Name AllowDevelopmentWithoutDevLicense -Value 1
+
+      - name: Register package
+        shell: pwsh
+        run: Add-AppxPackage -Register ./dist-arm64/AppxManifest.xml
+
+      - name: Verify COM activation
+        shell: pwsh
+        run: ./tests/com-activation.ps1
+
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: arm64-build
+          path: dist-arm64

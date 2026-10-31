@@ -1,9 +1,15 @@
 # build output
 dist/
+stage/
+out/
 .build/
 src/generated/
+.tools/
+.secrets/
 *.res
 *.obj
+*.pfx
+*.cer
 
 # editor / tooling
 .vs/

@@ -1,21 +1,24 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Registers the built package for the current user.
+    Registers the built package for the current user (developer install).
 
 .DESCRIPTION
-    Registers .\dist as a loose-file package with Add-AppxPackage -Register.
+    Registers .\dist as a loose-file package with Add-AppxPackage -Register. That requires
+    Windows Developer Mode because the loose layout is unsigned.
 
-    This package is currently unsigned, so registration requires Windows Developer Mode.
-    That is fine for local use and testing; public distribution needs a signed package
-    (see docs/distribution.md).
+    For a real installation use the signed bundle from scripts/package.ps1 instead; a loose
+    and a packaged installation of the same identity cannot coexist, so use -Replace to switch.
+
+.PARAMETER Replace
+    Remove an existing OpenCodeShell installation (packaged or loose) before registering.
 
 .PARAMETER RestartExplorer
-    Restart Explorer after registering so the new verb is picked up immediately. This closes
-    all File Explorer windows.
+    Restart Explorer so the new verb is picked up immediately. Closes all Explorer windows.
 #>
 [CmdletBinding()]
 param(
+    [switch]$Replace,
     [switch]$RestartExplorer
 )
 
@@ -28,12 +31,29 @@ if (-not (Test-Path $manifest)) { throw "Not built yet: $manifest. Run .\scripts
 $developerMode = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock' `
         -Name AllowDevelopmentWithoutDevLicense -ErrorAction SilentlyContinue).AllowDevelopmentWithoutDevLicense
 if ($developerMode -ne 1) {
-    Write-Warning 'Developer Mode is off. Registering an unsigned package will fail.'
-    Write-Warning 'Enable it under Settings > System > For developers, then re-run this script.'
+    Write-Warning 'Developer Mode is off. Registering an unsigned loose package will fail.'
+    Write-Warning 'Enable it under Settings > System > For developers, or install the signed bundle.'
+}
+
+$existing = Get-AppxPackage OpenCodeShell -ErrorAction SilentlyContinue
+if ($existing) {
+    $installedFrom = $existing.InstallLocation
+    $isThisCheckout = $false
+    if ($installedFrom -and (Test-Path $installedFrom)) {
+        $isThisCheckout = ((Resolve-Path $installedFrom).Path.TrimEnd('\') -eq
+                           (Resolve-Path (Join-Path $root 'dist')).Path.TrimEnd('\'))
+    }
+    if (-not $isThisCheckout) {
+        if (-not $Replace) {
+            throw "OpenCodeShell is installed from '$installedFrom'. Re-run with -Replace to switch this checkout to a loose developer install."
+        }
+        Write-Host "removing existing installation: $($existing.PackageFullName)"
+        Remove-AppxPackage -Package $existing.PackageFullName
+    }
 }
 
 Write-Host "registering $manifest"
-Add-AppxPackage -Register $manifest -ForceUpdateFromAnyVersion
+Add-AppxPackage -Register $manifest
 
 $package = Get-AppxPackage OpenCodeShell
 if (-not $package) { throw 'registration reported success but the package is not present' }
