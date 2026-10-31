@@ -6,8 +6,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this pr
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-31
+
+### Changed
+
+- Renamed the package identity to `OpenInOpenCode` and the publisher to
+  `CN=OpenInOpenCodeDev`; the display name is **Open in OpenCode** everywhere.
+  `ocshell.exe` keeps its short name.
+- Installs migrate automatically: the old package and certificate are removed, and settings
+  are copied from `%APPDATA%\OpenCodeShell`.
+- `MakeAppx bundle` is pinned to the package version. It previously stamped a date-derived
+  bundle version, which made `.appinstaller` installs fail validation.
+
 ### Added
 
+- PowerShell one-liner (`install.ps1`) that checks the Windows build, installs the supported
+  path with one UAC prompt, and upgrades in place.
+- `uninstall.ps1` one-liner.
+- winget and scoop manifests under `manifests/` (not submitted yet).
+- The setup ships the `.appinstaller` and registers the update source, falling back to the
+  bundled package when the release URL is unreachable.
 - Optional opencode plugin (`plugin/tui.ts`) exposing a `/ocshell` command in the TUI for
   settings, terminal choice and update checks, installed with `scripts/install-plugin.ps1`.
 
@@ -94,8 +112,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this pr
 
 ### Changed
 
-- Package identity renamed from `OpenCodeShellPhase0` to `OpenCodeShell`; version now 0.2.0.0.
-- Log moved to `%LOCALAPPDATA%\OpenCodeShell\shell.log`; `GetTitle` tracing is debug-only.
+- Package identity established; version now 0.2.0.0.
+- Log moved to `%LOCALAPPDATA%\OpenInOpenCode\shell.log`; `GetTitle` tracing is debug-only.
 - Removed the `cmd.exe /k opencode` fallback. A missing binary now produces a clear dialog and
   can be pinned with `settings locate-binary`.
 - Multi-select hides the entry instead of acting on the first folder.

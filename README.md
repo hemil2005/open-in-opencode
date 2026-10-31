@@ -26,7 +26,29 @@ Opening a folder in OpenCode normally means opening a terminal, `cd`-ing to the 
 
 ## Install
 
-1. Download **`OpenCodeShellSetup-<version>.exe`** from the [latest release](https://github.com/hemil2005/open-in-opencode/releases/latest).
+### One command
+
+```powershell
+irm https://github.com/hemil2005/open-in-opencode/releases/latest/download/install.ps1 | iex
+```
+
+The script asks for administrator rights once, checks the Windows build, and installs the
+supported path: the MSIX package on Windows 11, or the classic-menu installer on Windows 10.
+Running it again upgrades in place.
+
+### Package managers
+
+```powershell
+winget install OpenInOpenCode.OpenInOpenCode
+scoop install open-in-opencode
+```
+
+The manifests live under `manifests/`; they become installable once the first release is
+tagged and the winget/scoop entries are accepted.
+
+### From the installer
+
+1. Download **`OpenInOpenCodeSetup-<version>.exe`** from the [latest release](https://github.com/hemil2005/open-in-opencode/releases/latest).
 2. SmartScreen will say "unknown publisher", because the package is signed with a self-signed certificate. Choose **More info**, then **Run anyway**.
 3. Approve the UAC prompt.
 4. Right-click any folder, or empty space inside one.
@@ -84,7 +106,7 @@ Right-click a folder, or empty space inside one, and choose **Open in OpenCode**
 
 ## Configuration
 
-Settings live in `%APPDATA%\OpenCodeShell\settings.json` and are managed with `ocshell.exe`:
+Settings live in `%APPDATA%\OpenInOpenCode\settings.json` and are managed with `ocshell.exe`:
 
 ```powershell
 ocshell doctor                  # check package, certificate, binary and terminal
@@ -119,7 +141,7 @@ Argument templates understand `{dir}`, `{command}`, `{commandline}` and `{pscomm
 An optional plugin adds a `/ocshell` command to the opencode TUI to show settings, change the terminal, override the opencode path and check for updates.
 
 ```powershell
-.\scripts\install-plugin.ps1              # installs to %USERPROFILE%\.config\opencode\plugins\opencode-shell
+.\scripts\install-plugin.ps1              # installs to %USERPROFILE%\.config\opencode\plugins\open-in-opencode
 .\scripts\install-plugin.ps1 -Uninstall
 ```
 
@@ -153,7 +175,7 @@ Restart Explorer (`Stop-Process -Name explorer -Force`) or sign out and back in.
 Check the log:
 
 ```powershell
-Get-Content "$env:LOCALAPPDATA\OpenCodeShell\shell.log" -Tail 20
+Get-Content "$env:LOCALAPPDATA\OpenInOpenCode\shell.log" -Tail 20
 ```
 
 If the file doesn't exist, the DLL never loaded. The package is probably unregistered or its folder was moved, so re-run `.\scripts\install.ps1`.
@@ -188,7 +210,7 @@ Issues and pull requests are welcome.
 ## Notes
 
 - **Trademarks.** OpenCode and its mark belong to their respective owners. This project uses the mark only to identify the tool it integrates with. It is not affiliated with or endorsed by the OpenCode team.
-- **Internal names.** The package identity and CLI use the name **OpenCodeShell** / **ocshell.exe**.
+- **Internal names.** The display name is **Open in OpenCode**; the package identity is **OpenInOpenCode** and the CLI is **ocshell.exe**.
 
 ## License
 

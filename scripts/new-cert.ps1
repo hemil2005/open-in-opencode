@@ -8,8 +8,8 @@
     cannot be installed. packaging/identity.json is the source of truth for that value.
 
     Outputs (both git-ignored):
-        .secrets\OpenCodeShell.pfx   private key, used by sign.ps1
-        .secrets\OpenCodeShell.cer   public key, shipped by the installer
+        .secrets\OpenInOpenCode.pfx   private key, used by sign.ps1
+        .secrets\OpenInOpenCode.cer   public key, shipped by the installer
         .secrets\password.txt        PFX password, for local use only
 
     This is a development certificate. Step up to Azure Artifact Signing or the Microsoft
@@ -33,8 +33,8 @@ if (-not [System.IO.Path]::IsPathRooted($OutDir)) { $OutDir = Join-Path $root $O
 $identity = Get-Content (Join-Path $root 'packaging\identity.json') -Raw | ConvertFrom-Json
 $publisher = $identity.publisher
 
-$pfx = Join-Path $OutDir 'OpenCodeShell.pfx'
-$cer = Join-Path $OutDir 'OpenCodeShell.cer'
+$pfx = Join-Path $OutDir 'OpenInOpenCode.pfx'
+$cer = Join-Path $OutDir 'OpenInOpenCode.cer'
 $passwordFile = Join-Path $OutDir 'password.txt'
 
 if ((Test-Path $pfx) -and -not $Force) {
@@ -63,7 +63,7 @@ $certificate = New-SelfSignedCertificate `
     -Type Custom `
     -Subject $publisher `
     -KeyUsage DigitalSignature `
-    -FriendlyName 'OpenCodeShell signing' `
+    -FriendlyName 'OpenInOpenCode signing' `
     -CertStoreLocation 'Cert:\CurrentUser\My' `
     -TextExtension @('2.5.29.37={text}1.3.6.1.5.5.7.3.3', '2.5.29.19={text}') `
     -NotAfter (Get-Date).AddYears(3)

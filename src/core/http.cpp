@@ -50,7 +50,7 @@ bool HttpGet(const std::wstring& url, std::string* body, std::wstring* error) {
   const bool secure = parts.nScheme == INTERNET_SCHEME_HTTPS;
 
   Handle session;
-  session.value = WinHttpOpen(L"OpenCodeShell/1.0", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,
+  session.value = WinHttpOpen(L"OpenInOpenCode/1.0", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,
                               WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
   if (!session.value) return Fail(L"WinHttpOpen", error);
 

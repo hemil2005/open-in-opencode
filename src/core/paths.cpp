@@ -19,13 +19,18 @@ std::wstring EnvVar(const wchar_t* name) {
   return std::wstring(buffer, length);
 }
 
-std::wstring AppDataDirectory() { return Join(EnvVar(L"APPDATA"), L"OpenCodeShell"); }
+std::wstring AppDataDirectory() { return Join(EnvVar(L"APPDATA"), L"OpenInOpenCode"); }
 
-std::wstring LocalDataDirectory() { return Join(EnvVar(L"LOCALAPPDATA"), L"OpenCodeShell"); }
+std::wstring LocalDataDirectory() { return Join(EnvVar(L"LOCALAPPDATA"), L"OpenInOpenCode"); }
 
 std::wstring SettingsPath() { return Join(AppDataDirectory(), L"settings.json"); }
 
 std::wstring LogPath() { return Join(LocalDataDirectory(), L"shell.log"); }
+
+// The package was renamed from OpenCodeShell; keep reading the old folder once.
+std::wstring LegacyAppDataDirectory() { return Join(EnvVar(L"APPDATA"), L"OpenCodeShell"); }
+
+std::wstring LegacySettingsPath() { return Join(LegacyAppDataDirectory(), L"settings.json"); }
 
 bool EnsureDirectory(const std::wstring& path) {
   if (path.empty()) return false;

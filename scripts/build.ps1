@@ -1,13 +1,13 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Builds OpenCodeShell for one architecture into an output directory.
+    Builds Open in OpenCode for one architecture into an output directory.
 
 .DESCRIPTION
     Produces a complete loose-package layout:
 
         <OutDir>\AppxManifest.xml   rendered from packaging/AppxManifest.template.xml
-        <OutDir>\OpenCodeShell.dll
+        <OutDir>\OpenInOpenCode.dll
         <OutDir>\ocshell.exe
         <OutDir>\noop.exe
         <OutDir>\Assets\*.png
@@ -151,8 +151,8 @@ $common = @(
 
 $libs = @('-lole32', '-lshlwapi', '-luuid', '-lshell32', '-luser32', '-ladvapi32', '-lcrypt32', '-lwinhttp')
 
-Write-Host 'dll      : OpenCodeShell.dll'
-& $gxx @common -shared -o (Join-Path $OutDir 'OpenCodeShell.dll') `
+Write-Host 'dll      : OpenInOpenCode.dll'
+& $gxx @common -shared -o (Join-Path $OutDir 'OpenInOpenCode.dll') `
     $core (Join-Path $root 'src\extension\command.cpp') $resource @libs
 if ($LASTEXITCODE -ne 0) { throw 'extension build failed' }
 

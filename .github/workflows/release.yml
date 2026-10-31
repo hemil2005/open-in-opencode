@@ -3,10 +3,10 @@ name: release
 # Builds and publishes a signed release.
 #
 # Required repository secrets:
-#   SIGNING_PFX_BASE64   base64 of .secrets\OpenCodeShell.pfx
+#   SIGNING_PFX_BASE64   base64 of .secrets\OpenInOpenCode.pfx
 #   SIGNING_PFX_PASSWORD the PFX password
 #
-# Tag the release with the package version (v0.5.0.0) so the .appinstaller bundle URL
+# Tag the release with the package version (v0.7.0.0) so the .appinstaller bundle URL
 # matches what make-appinstaller.ps1 generates.
 
 on:
@@ -40,7 +40,7 @@ jobs:
         run: |
           if (-not $env:PFX_BASE64) { throw 'SIGNING_PFX_BASE64 is not configured' }
           New-Item -ItemType Directory -Force .secrets | Out-Null
-          [IO.File]::WriteAllBytes('.secrets/OpenCodeShell.pfx', [Convert]::FromBase64String($env:PFX_BASE64))
+          [IO.File]::WriteAllBytes('.secrets/OpenInOpenCode.pfx', [Convert]::FromBase64String($env:PFX_BASE64))
           Set-Content -Path '.secrets/password.txt' -Value $env:PFX_PASSWORD -NoNewline
 
       - name: Export public certificate
@@ -48,28 +48,40 @@ jobs:
         run: |
           $password = Get-Content '.secrets/password.txt' -Raw
           $certificate = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2(
-              '.secrets/OpenCodeShell.pfx', $password)
-          [IO.File]::WriteAllBytes('.secrets/OpenCodeShell.cer',
+              '.secrets/OpenInOpenCode.pfx', $password)
+          [IO.File]::WriteAllBytes('.secrets/OpenInOpenCode.cer',
               $certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert))
 
       - name: Build, sign and bundle
         shell: pwsh
         run: ./scripts/package.ps1 -InstallTools -Sign
 
+      - name: Generate .appinstaller
+        shell: pwsh
+        run: ./scripts/make-appinstaller.ps1 -Repo ${{ github.repository }}
+
       - name: Build installer
         shell: pwsh
         run: ./scripts/build-installer.ps1 -InstallTools
 
-      - name: Generate .appinstaller
+      - name: Stage fixed-name assets
         shell: pwsh
-        run: ./scripts/make-appinstaller.ps1 -Repo ${{ github.repository }}
+        run: |
+          $identity = Get-Content packaging/identity.json -Raw | ConvertFrom-Json
+          Copy-Item "out/OpenInOpenCodeSetup-$($identity.version).exe" out/OpenInOpenCodeSetup.exe
+          Copy-Item scripts/install-oneliner.ps1 out/install.ps1
+          Copy-Item scripts/uninstall-oneliner.ps1 out/uninstall.ps1
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            out/OpenCodeShell_*.msixbundle
-            out/OpenCodeShell_*.msix
-            out/OpenCodeShell.appinstaller
-            out/OpenCodeShellSetup-*.exe
+            out/OpenInOpenCode_*.msixbundle
+            out/OpenInOpenCode_*.msix
+            out/OpenInOpenCode.appinstaller
+            out/OpenInOpenCode.cer
+            out/OpenInOpenCodeSetup-*.exe
+            out/OpenInOpenCodeSetup.exe
+            out/install.ps1
+            out/uninstall.ps1
           fail_on_unmatched_files: true

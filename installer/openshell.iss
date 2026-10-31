@@ -1,4 +1,4 @@
-; Inno Setup script for OpenCodeShell.
+; Inno Setup script for Open in OpenCode.
 ;
 ; Build with scripts/build-installer.ps1, which passes:
 ;   /DAppVersion=<version>   from packaging/identity.json
@@ -12,14 +12,14 @@
 ; needed for certificate trust and package installation.
 
 #define AppName "Open in OpenCode"
-#define AppPublisher "OpenCodeShell"
+#define AppPublisher "Open in OpenCode"
 
 #ifndef AppVersion
   #define AppVersion "0.0.0.0"
 #endif
 
 #ifndef PublisherCN
-  #define PublisherCN "CN=OpenCodeShellDev"
+  #define PublisherCN "CN=OpenInOpenCodeDev"
 #endif
 
 [Setup]
@@ -27,14 +27,14 @@ AppId={{A4C1E7B2-9F3D-4E6A-8B21-5C7D0E9F1A34}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher={#AppPublisher}
-DefaultDirName={autopf}\OpenCodeShell
+DefaultDirName={autopf}\OpenInOpenCode
 DisableDirPage=yes
 DisableProgramGroupPage=yes
 PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir=..\out
-OutputBaseFilename=OpenCodeShellSetup-{#AppVersion}
+OutputBaseFilename=OpenInOpenCodeSetup-{#AppVersion}
 SetupIconFile=..\src\resources\opencode.ico
 Compression=lzma2
 SolidCompression=yes
@@ -45,8 +45,9 @@ MinVersion=10.0.17763
 
 [Files]
 ; Windows 11: staged to {tmp} and removed after the install step.
-Source: "..\out\OpenCodeShell.cer"; DestDir: "{tmp}"; Flags: deleteafterinstall; Check: IsWindows11
-Source: "..\out\OpenCodeShell.msixbundle"; DestDir: "{tmp}"; Flags: deleteafterinstall; Check: IsWindows11
+Source: "..\out\OpenInOpenCode.cer"; DestDir: "{tmp}"; Flags: deleteafterinstall; Check: IsWindows11
+Source: "..\out\OpenInOpenCode.msixbundle"; DestDir: "{tmp}"; Flags: deleteafterinstall; Check: IsWindows11
+Source: "..\out\OpenInOpenCode.appinstaller"; DestDir: "{tmp}"; Flags: deleteafterinstall; Check: IsWindows11
 Source: "install-package.ps1"; DestDir: "{tmp}"; Flags: deleteafterinstall; Check: IsWindows11
 
 ; Windows 10: the CLI is the product, and it writes the registry verbs itself.
@@ -79,8 +80,9 @@ begin
   begin
     Parameters :=
       '-NoProfile -ExecutionPolicy Bypass -File "' + ExpandConstant('{tmp}\install-package.ps1') + '"' +
-      ' -Certificate "' + ExpandConstant('{tmp}\OpenCodeShell.cer') + '"' +
-      ' -Bundle "' + ExpandConstant('{tmp}\OpenCodeShell.msixbundle') + '"' +
+      ' -Certificate "' + ExpandConstant('{tmp}\OpenInOpenCode.cer') + '"' +
+      ' -AppInstaller "' + ExpandConstant('{tmp}\OpenInOpenCode.appinstaller') + '"' +
+      ' -Bundle "' + ExpandConstant('{tmp}\OpenInOpenCode.msixbundle') + '"' +
       ' -Version "{#AppVersion}"';
     Succeeded := Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'), Parameters, '',
                       SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0);
@@ -92,7 +94,7 @@ begin
   end;
 
   if not Succeeded then
-    MsgBox('OpenCodeShell could not be installed.' + #13#10 + #13#10 +
+    MsgBox('Open in OpenCode could not be installed.' + #13#10 + #13#10 +
            'Run the installer again, or see the README for a manual installation.',
            mbError, MB_OK);
 end;
@@ -111,7 +113,7 @@ begin
 
   // Windows 11: remove the package (a no-op when it was never installed).
   Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
-       '-NoProfile -ExecutionPolicy Bypass -Command "Get-AppxPackage OpenCodeShell | Remove-AppxPackage"',
+       '-NoProfile -ExecutionPolicy Bypass -Command "Get-AppxPackage OpenInOpenCode | Remove-AppxPackage; Get-AppxPackage OpenCodeShell | Remove-AppxPackage"',
        '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 
   // Silent uninstall keeps the certificate: nobody to ask, and dropping machine-wide trust
@@ -119,14 +121,14 @@ begin
   if UninstallSilent then
     Exit;
 
-  if MsgBox('Also remove the OpenCodeShell signing certificate from this computer?' + #13#10 +
+  if MsgBox('Also remove the Open in OpenCode signing certificate from this computer?' + #13#10 +
             'Choose No to keep it, for example if you plan to reinstall.',
             mbConfirmation, MB_YESNO) = IDYES then
   begin
     Parameters :=
       '-NoProfile -ExecutionPolicy Bypass -Command "' +
       'Get-ChildItem Cert:\LocalMachine\TrustedPeople | ' +
-      'Where-Object { $_.Subject -eq ''{#PublisherCN}'' } | Remove-Item"';
+      'Where-Object { $_.Subject -eq ''{#PublisherCN}'' -or $_.Subject -eq ''CN=OpenCodeShellDev'' } | Remove-Item"';
     Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'), Parameters, '',
          SW_HIDE, ewWaitUntilTerminated, ResultCode);
   end;

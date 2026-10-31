@@ -1,4 +1,4 @@
-// OpenCodeShell shell extension: the packaged IExplorerCommand for the Windows 11 context menu.
+// Open in OpenCode shell extension: the packaged IExplorerCommand for the Windows 11 context menu.
 // All launch logic lives in src/core so the Windows 10 registry path can reuse it.
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX

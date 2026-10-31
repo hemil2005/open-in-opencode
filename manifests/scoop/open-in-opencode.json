@@ -1,0 +1,23 @@
+{
+  "version": "0.7.0.0",
+  "description": "Open a folder in OpenCode from the Windows context menu.",
+  "homepage": "https://github.com/hemil2005/open-in-opencode",
+  "license": "MIT",
+  "notes": "The installer requests administrator rights (UAC) and installs the shell extension machine-wide.",
+  "url": "https://github.com/hemil2005/open-in-opencode/releases/download/v0.7.0.0/OpenInOpenCodeSetup-0.7.0.0.exe#/OpenInOpenCodeSetup.exe",
+  "hash": "ECA9B0563107C2BA3CF1483D30B2DE8F365AAC146D9A29877B482BD71B927826",
+  "installer": {
+    "script": [
+      "Start-Process -FilePath \"$dir\\OpenInOpenCodeSetup.exe\" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait"
+    ]
+  },
+  "post_uninstall": [
+    "$entry = Get-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*','HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*' -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -like 'Open in OpenCode*' } | Select-Object -First 1; if ($entry) { Start-Process -FilePath $entry.UninstallString.Trim('\"') -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait }"
+  ],
+  "checkver": {
+    "github": "https://github.com/hemil2005/open-in-opencode"
+  },
+  "autoupdate": {
+    "url": "https://github.com/hemil2005/open-in-opencode/releases/download/v$version/OpenInOpenCodeSetup-$version.exe#/OpenInOpenCodeSetup.exe"
+  }
+}

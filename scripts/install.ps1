@@ -11,7 +11,7 @@
     and a packaged installation of the same identity cannot coexist, so use -Replace to switch.
 
 .PARAMETER Replace
-    Remove an existing OpenCodeShell installation (packaged or loose) before registering.
+    Remove an existing Open in OpenCode installation (packaged or loose) before registering.
 
 .PARAMETER RestartExplorer
     Restart Explorer so the new verb is picked up immediately. Closes all Explorer windows.
@@ -35,7 +35,13 @@ if ($developerMode -ne 1) {
     Write-Warning 'Enable it under Settings > System > For developers, or install the signed bundle.'
 }
 
-$existing = Get-AppxPackage OpenCodeShell -ErrorAction SilentlyContinue
+$legacy = Get-AppxPackage OpenCodeShell -ErrorAction SilentlyContinue
+if ($legacy) {
+    Write-Host "removing legacy package: $($legacy.PackageFullName)"
+    Remove-AppxPackage -Package $legacy.PackageFullName
+}
+
+$existing = Get-AppxPackage OpenInOpenCode -ErrorAction SilentlyContinue
 if ($existing) {
     $installedFrom = $existing.InstallLocation
     $isThisCheckout = $false
@@ -45,7 +51,7 @@ if ($existing) {
     }
     if (-not $isThisCheckout) {
         if (-not $Replace) {
-            throw "OpenCodeShell is installed from '$installedFrom'. Re-run with -Replace to switch this checkout to a loose developer install."
+            throw "Open in OpenCode is installed from '$installedFrom'. Re-run with -Replace to switch this checkout to a loose developer install."
         }
         Write-Host "removing existing installation: $($existing.PackageFullName)"
         Remove-AppxPackage -Package $existing.PackageFullName
@@ -55,7 +61,7 @@ if ($existing) {
 Write-Host "registering $manifest"
 Add-AppxPackage -Register $manifest
 
-$package = Get-AppxPackage OpenCodeShell
+$package = Get-AppxPackage OpenInOpenCode
 if (-not $package) { throw 'registration reported success but the package is not present' }
 Write-Host "installed : $($package.PackageFullName)"
 Write-Host "location  : $($package.InstallLocation)"

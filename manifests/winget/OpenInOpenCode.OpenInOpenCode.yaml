@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.singleton.1.6.0.schema.json
+
+PackageIdentifier: OpenInOpenCode.OpenInOpenCode
+PackageVersion: 0.7.0.0
+PackageLocale: en-US
+Publisher: Open in OpenCode
+PublisherUrl: https://github.com/hemil2005/open-in-opencode
+PublisherSupportUrl: https://github.com/hemil2005/open-in-opencode/issues
+PackageName: Open in OpenCode
+PackageUrl: https://github.com/hemil2005/open-in-opencode
+License: MIT
+LicenseUrl: https://github.com/hemil2005/open-in-opencode/blob/main/LICENSE
+Copyright: Copyright (c) 2026 Hemil Shah
+ShortDescription: Open a folder in OpenCode from the Windows context menu.
+Description: Adds an "Open in OpenCode" command to the Windows File Explorer context menu and starts the opencode CLI in the selected folder, with New session, Continue last session and Skip permission prompts variants.
+Moniker: open-in-opencode
+Tags:
+  - context-menu
+  - explorer
+  - opencode
+  - shell
+  - windows
+ReleaseNotesUrl: https://github.com/hemil2005/open-in-opencode/releases
+InstallModes:
+  - silent
+  - silentWithProgress
+InstallerType: exe
+Scope: machine
+UpgradeBehavior: install
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/hemil2005/open-in-opencode/releases/download/v0.7.0.0/OpenInOpenCodeSetup-0.7.0.0.exe
+    InstallerSha256: ECA9B0563107C2BA3CF1483D30B2DE8F365AAC146D9A29877B482BD71B927826
+    InstallerSwitches:
+      Silent: /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+      SilentWithProgress: /SILENT /NORESTART
+ManifestType: singleton
+ManifestVersion: 1.6.0

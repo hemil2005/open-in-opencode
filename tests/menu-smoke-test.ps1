@@ -27,8 +27,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-if (-not (Get-AppxPackage OpenCodeShell -ErrorAction SilentlyContinue)) {
-    throw 'OpenCodeShell is not registered. Run .\scripts\install.ps1 first.'
+if (-not (Get-AppxPackage OpenInOpenCode -ErrorAction SilentlyContinue)) {
+    throw 'Open in OpenCode is not registered. Run .\scripts\install.ps1 first.'
 }
 
 Add-Type -AssemblyName UIAutomationClient
@@ -98,7 +98,7 @@ function Find-MenuEntry {
     return $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
 }
 
-$folder = Join-Path $env:TEMP 'opencode-shell-smoke'
+$folder = Join-Path $env:TEMP 'open-in-opencode-smoke'
 New-Item -ItemType Directory -Force -Path $folder | Out-Null
 
 $before = @(Get-CabinetWindows)
@@ -139,7 +139,7 @@ try {
     }
 
     Write-Host "FAIL  '$MenuEntry' not found after $Attempts attempts" -ForegroundColor Red
-    Write-Host '      Check %LOCALAPPDATA%\OpenCodeShell\shell.log and re-run install.ps1.'
+    Write-Host '      Check %LOCALAPPDATA%\OpenInOpenCode\shell.log and re-run install.ps1.'
     exit 1
 } finally {
     [Shell]::keybd_event(0x1B, 0, 0, [UIntPtr]::Zero)

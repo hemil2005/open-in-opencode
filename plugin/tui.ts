@@ -2,7 +2,7 @@ import { Plugin } from "@opencode/plugin/tui"
 import { spawnSync } from "node:child_process"
 
 /**
- * TUI front end for OpenCodeShell.
+ * TUI front end for Open in OpenCode.
  *
  * The CLI (ocshell.exe, on PATH via the package's execution alias) is the source of truth.
  * This plugin only presents it inside opencode: settings, terminal choice and update checks.
@@ -51,14 +51,14 @@ async function changeTerminal(context: any): Promise<void> {
 
   if (terminals.length === 0) {
     await context.ui.dialog.alert({
-      title: "OpenCodeShell",
+      title: "Open in OpenCode",
       message: "No terminals were detected. Set one from a terminal with `ocshell settings set terminal.mode custom`.",
     })
     return
   }
 
   const choice = await context.ui.dialog.select({
-    title: "Terminal for OpenCodeShell",
+    title: "Terminal for Open in OpenCode",
     options: [
       { title: "Windows default", value: "", description: "Let Windows choose the console host" },
       ...terminals.map((terminal) => ({
@@ -111,7 +111,7 @@ async function changeBinary(context: any): Promise<void> {
 async function showSettings(context: any): Promise<void> {
   const result = run(["settings", "list"])
   await context.ui.dialog.alert({
-    title: "OpenCodeShell settings",
+    title: "Open in OpenCode settings",
     message: result.stdout || result.stderr || "No output",
   })
 }
@@ -132,7 +132,7 @@ async function checkUpdates(context: any): Promise<void> {
   }
 
   if (!info.updateAvailable) {
-    context.ui.toast.show({ message: `OpenCodeShell ${info.current} is up to date`, variant: "success" })
+    context.ui.toast.show({ message: `Open in OpenCode ${info.current} is up to date`, variant: "success" })
     return
   }
 
@@ -144,7 +144,7 @@ async function checkUpdates(context: any): Promise<void> {
 
   if (!confirmed) return
 
-  context.ui.toast.show({ message: `Installing OpenCodeShell ${info.available}...` })
+  context.ui.toast.show({ message: `Installing Open in OpenCode ${info.available}...` })
   const applied = run(["update", "apply"])
   context.ui.toast.show({
     message: applied.code === 0 ? `Updated to ${info.available}` : applied.stderr || applied.stdout,
@@ -156,7 +156,7 @@ async function checkUpdates(context: any): Promise<void> {
 async function open(context: any): Promise<void> {
   if (process.platform !== "win32") {
     await context.ui.dialog.alert({
-      title: "OpenCodeShell",
+      title: "Open in OpenCode",
       message: "The Open in OpenCode shell integration is Windows-only.",
     })
     return
@@ -164,7 +164,7 @@ async function open(context: any): Promise<void> {
 
   if (!available()) {
     await context.ui.dialog.alert({
-      title: "OpenCodeShell",
+      title: "Open in OpenCode",
       message:
         "The ocshell.exe command was not found.\n\n" +
         "Install Open in OpenCode, or make sure its execution alias is on PATH.",
@@ -173,7 +173,7 @@ async function open(context: any): Promise<void> {
   }
 
   const choice = await context.ui.dialog.select({
-    title: "OpenCodeShell",
+    title: "Open in OpenCode",
     options: [
       { title: "Show settings", value: "show", description: "Current values and config path" },
       { title: "Change terminal", value: "terminal", description: "Where opencode opens" },
@@ -195,15 +195,15 @@ async function open(context: any): Promise<void> {
 }
 
 export default Plugin.define({
-  id: "opencode-shell.tui",
+  id: "open-in-opencode.tui",
   setup(context: any) {
     context.keymap.layer(() => ({
       mode: "global" as const,
       commands: [
         {
           id: COMMAND_ID,
-          title: "OpenCodeShell settings",
-          group: "OpenCodeShell",
+          title: "Open in OpenCode settings",
+          group: "Open in OpenCode",
           palette: true,
           slash: { name: "ocshell" },
           run: () => open(context),

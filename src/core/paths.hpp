@@ -7,10 +7,14 @@
 namespace oc {
 
 std::wstring EnvVar(const wchar_t* name);
-std::wstring AppDataDirectory();    // %APPDATA%\OpenCodeShell
-std::wstring LocalDataDirectory();  // %LOCALAPPDATA%\OpenCodeShell
-std::wstring SettingsPath();        // %APPDATA%\OpenCodeShell\settings.json
-std::wstring LogPath();             // %LOCALAPPDATA%\OpenCodeShell\shell.log
+std::wstring AppDataDirectory();    // %APPDATA%\OpenInOpenCode
+std::wstring LocalDataDirectory();  // %LOCALAPPDATA%\OpenInOpenCode
+std::wstring SettingsPath();        // %APPDATA%\OpenInOpenCode\settings.json
+std::wstring LogPath();             // %LOCALAPPDATA%\OpenInOpenCode\shell.log
+
+// Pre-rename locations, read once so an existing install keeps its settings.
+std::wstring LegacyAppDataDirectory();  // %APPDATA%\OpenCodeShell
+std::wstring LegacySettingsPath();      // %APPDATA%\OpenCodeShell\settings.json
 
 bool EnsureDirectory(const std::wstring& path);
 bool FileExists(const std::wstring& path);

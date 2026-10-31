@@ -22,7 +22,7 @@
 
   <Properties>
     <DisplayName>{{DISPLAY}}</DisplayName>
-    <PublisherDisplayName>OpenCodeShell</PublisherDisplayName>
+    <PublisherDisplayName>Open in OpenCode</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 
@@ -58,7 +58,7 @@
             <com:SurrogateServer DisplayName="{{DISPLAY}}">
               <com:Class
                   Id="6F3A1C2E-5B4D-4A8E-9C71-3D2F8B0A6E54"
-                  Path="OpenCodeShell.dll"
+                  Path="OpenInOpenCode.dll"
                   ThreadingModel="STA" />
             </com:SurrogateServer>
           </com:ComServer>

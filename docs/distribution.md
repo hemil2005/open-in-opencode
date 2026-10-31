@@ -63,9 +63,9 @@ entirely, handles updates and uninstall, and a comparable context-menu app alrea
 
 ```
 GitHub Actions (windows-latest)
-  ├─ llvm-mingw x86_64   → OpenCodeShell.dll
-  ├─ llvm-mingw aarch64  → OpenCodeShell.dll
-  ├─ MakeAppx            → x64.msix + arm64.msix → OpenCodeShell.msixbundle
+  ├─ llvm-mingw x86_64   → OpenInOpenCode.dll
+  ├─ llvm-mingw aarch64  → OpenInOpenCode.dll
+  ├─ MakeAppx            → x64.msix + arm64.msix → OpenInOpenCode.msixbundle
   ├─ Store: submit bundle to Partner Center (Store signs)
   └─ or: signtool with an OV/Artifact Signing certificate → attach to GitHub Release
 ```

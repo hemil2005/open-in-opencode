@@ -38,7 +38,7 @@ jobs:
       - name: Assert PE machine type
         shell: pwsh
         run: |
-          $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path './dist-arm64/OpenCodeShell.dll'))
+          $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path './dist-arm64/OpenInOpenCode.dll'))
           $pe = [BitConverter]::ToInt32($bytes, 0x3C)
           $machine = [BitConverter]::ToUInt16($bytes, $pe + 4)
           Write-Host ("PE machine: 0x{0:X4}" -f $machine)

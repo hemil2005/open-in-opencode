@@ -1,4 +1,4 @@
-// Minimal JSON reader/writer for OpenCodeShell settings.
+// Minimal JSON reader/writer for Open in OpenCode settings.
 //
 // Deliberately small: it covers the JSON subset the settings file uses (objects, arrays,
 // strings, numbers, booleans, null) so the project keeps zero third-party dependencies.

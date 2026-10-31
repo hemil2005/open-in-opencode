@@ -19,7 +19,8 @@
 [CmdletBinding()]
 param(
     [switch]$InstallTools,
-    [switch]$SkipSign
+    [switch]$SkipSign,
+    [string]$Repo = 'hemil2005/open-in-opencode'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -28,18 +29,27 @@ $root = Split-Path -Parent $PSScriptRoot
 $identity = Get-Content (Join-Path $root 'packaging\identity.json') -Raw | ConvertFrom-Json
 $version = $identity.version
 
-$bundle = Join-Path $root "out\OpenCodeShell_$version.msixbundle"
+$bundle = Join-Path $root "out\OpenInOpenCode_$version.msixbundle"
 if (-not (Test-Path $bundle)) {
     throw "bundle not found: $bundle. Run .\scripts\package.ps1 -Sign first."
 }
 
-$certificate = Join-Path $root '.secrets\OpenCodeShell.cer'
+$certificate = Join-Path $root '.secrets\OpenInOpenCode.cer'
 if (-not (Test-Path $certificate)) {
     throw "certificate not found: $certificate. Run .\scripts\new-cert.ps1 first."
 }
-Copy-Item $certificate (Join-Path $root 'out\OpenCodeShell.cer') -Force
+Copy-Item $certificate (Join-Path $root 'out\OpenInOpenCode.cer') -Force
 # Inno cannot rename a wildcard Source, so stage the bundle under a fixed name.
-Copy-Item $bundle (Join-Path $root 'out\OpenCodeShell.msixbundle') -Force
+Copy-Item $bundle (Join-Path $root 'out\OpenInOpenCode.msixbundle') -Force
+
+# The appinstaller registers the update source. Its bundle URI points at the release, so a
+# local install falls back to the bundled package when that URL is not live yet.
+$appinstaller = Join-Path $root 'out\OpenInOpenCode.appinstaller'
+if (-not (Test-Path $appinstaller)) {
+    Write-Host 'generating appinstaller...'
+    & (Join-Path $PSScriptRoot 'make-appinstaller.ps1') -Repo $Repo
+    if (-not (Test-Path $appinstaller)) { throw 'appinstaller generation failed' }
+}
 
 # The CLI doubles as the Windows 10 payload (it writes the classic registry verbs).
 $cli = Join-Path $root 'stage\x64\ocshell.exe'
@@ -99,7 +109,7 @@ $iss = Join-Path $root 'installer\openshell.iss'
 & $iscc "/DAppVersion=$version" "/DPublisherCN=$($identity.publisher)" $iss
 if ($LASTEXITCODE -ne 0) { throw 'ISCC compilation failed' }
 
-$setup = Join-Path $root "out\OpenCodeShellSetup-$version.exe"
+$setup = Join-Path $root "out\OpenInOpenCodeSetup-$version.exe"
 if (-not (Test-Path $setup)) { throw "expected output not found: $setup" }
 
 if (-not $SkipSign) {

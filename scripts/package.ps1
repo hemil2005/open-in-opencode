@@ -4,7 +4,7 @@
     Packs the x64 and arm64 builds into an MSIX bundle, optionally signing it.
 
 .PARAMETER Sign
-    Sign the bundle with .secrets\OpenCodeShell.pfx.
+    Sign the bundle with .secrets\OpenInOpenCode.pfx.
 
 .PARAMETER InstallTools
     Download MakeAppx/SignTool from the Microsoft.Windows.SDK.BuildTools NuGet package into
@@ -86,7 +86,9 @@ foreach ($arch in @('x64', 'arm64')) {
 $bundle = Join-Path $outDir ("{0}_{1}.msixbundle" -f $identity.name, $version)
 Write-Host ''
 Write-Host "bundling : $(Split-Path -Leaf $bundle)"
-& $makeappx bundle /d $bundleInput /p $bundle /o
+# Without /bv, MakeAppx stamps the bundle with a date-derived version, which then mismatches
+# the .appinstaller and the package identity. Pin it to the package version.
+& $makeappx bundle /d $bundleInput /p $bundle /bv $version /o
 if ($LASTEXITCODE -ne 0) { throw 'makeappx bundle failed' }
 
 if ($Sign) {

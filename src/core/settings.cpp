@@ -87,7 +87,20 @@ bool LoadSettings(Settings* out, std::wstring* warning) {
   if (path.empty()) return false;
 
   std::wstring text;
-  if (!ReadTextFile(path, &text)) return false;  // first run: defaults are correct
+  if (!ReadTextFile(path, &text)) {
+    // Migrate settings from the pre-rename folder once, then write them to the new path.
+    std::wstring legacy = LegacySettingsPath();
+    if (!legacy.empty() && ReadTextFile(legacy, &text)) {
+      json::Value parsed;
+      std::wstring error;
+      if (json::Parse(text, &parsed, &error)) {
+        *out = SettingsFromJson(parsed);
+        SaveSettings(*out, nullptr);
+        return true;
+      }
+    }
+    return false;  // first run: defaults are correct
+  }
 
   json::Value parsed;
   std::wstring error;

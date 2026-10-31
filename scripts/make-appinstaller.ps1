@@ -7,7 +7,7 @@
     The .appinstaller must be published at a stable URL so installed clients can find new
     versions. The convention used here is a release asset with a fixed name:
 
-        https://github.com/<owner>/<repo>/releases/latest/download/OpenCodeShell.appinstaller
+        https://github.com/<owner>/<repo>/releases/latest/download/OpenInOpenCode.appinstaller
 
     Inside, MainBundle/Uri points at the versioned bundle of that release.
 
@@ -37,13 +37,13 @@ $identity = Get-Content (Join-Path $root 'packaging\identity.json') -Raw | Conve
 $version = $identity.version
 
 if ($BaseUri) {
-    $installerUri = "$($BaseUri.TrimEnd('/'))/OpenCodeShell.appinstaller"
-    $bundleUri = "$($BaseUri.TrimEnd('/'))/OpenCodeShell_$version.msixbundle"
+    $installerUri = "$($BaseUri.TrimEnd('/'))/OpenInOpenCode.appinstaller"
+    $bundleUri = "$($BaseUri.TrimEnd('/'))/OpenInOpenCode_$version.msixbundle"
 } else {
     if (-not $Repo) { throw 'Pass -Repo <owner/name> (or -BaseUri for a local test).' }
     if (-not $Tag) { $Tag = "v$version" }
-    $installerUri = "https://github.com/$Repo/releases/latest/download/OpenCodeShell.appinstaller"
-    $bundleUri = "https://github.com/$Repo/releases/download/$Tag/OpenCodeShell_$version.msixbundle"
+    $installerUri = "https://github.com/$Repo/releases/latest/download/OpenInOpenCode.appinstaller"
+    $bundleUri = "https://github.com/$Repo/releases/download/$Tag/OpenInOpenCode_$version.msixbundle"
 }
 
 $template = Get-Content (Join-Path $root 'packaging\appinstaller.template.xml') -Raw
@@ -56,7 +56,7 @@ $document = $template.
 
 $outDir = Join-Path $root 'out'
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
-$path = Join-Path $outDir 'OpenCodeShell.appinstaller'
+$path = Join-Path $outDir 'OpenInOpenCode.appinstaller'
 [System.IO.File]::WriteAllText($path, $document, (New-Object System.Text.UTF8Encoding($false)))
 
 Write-Host "version   : $version"
@@ -66,3 +66,4 @@ Write-Host "written   : $path"
 Write-Host ''
 Write-Host 'Point clients at it with:'
 Write-Host "  ocshell settings set updateUri `"$installerUri`""
+exit 0

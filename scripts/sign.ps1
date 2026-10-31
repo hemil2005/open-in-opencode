@@ -7,7 +7,7 @@
     File to sign (.msix, .msixbundle, .exe).
 
 .PARAMETER Pfx
-    Path to the certificate. Defaults to .secrets\OpenCodeShell.pfx.
+    Path to the certificate. Defaults to .secrets\OpenInOpenCode.pfx.
 
 .PARAMETER Password
     PFX password. Defaults to .secrets\password.txt.
@@ -26,7 +26,7 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 
 if (-not [System.IO.Path]::IsPathRooted($Path)) { $Path = Join-Path $root $Path }
-if (-not $Pfx) { $Pfx = Join-Path $root '.secrets\OpenCodeShell.pfx' }
+if (-not $Pfx) { $Pfx = Join-Path $root '.secrets\OpenInOpenCode.pfx' }
 if (-not [System.IO.Path]::IsPathRooted($Pfx)) { $Pfx = Join-Path $root $Pfx }
 if (-not (Test-Path $Path)) { throw "not found: $Path" }
 if (-not (Test-Path $Pfx)) { throw "certificate not found: $Pfx. Run .\scripts\new-cert.ps1 first." }
@@ -72,7 +72,7 @@ if ($LASTEXITCODE -ne 0) {
     $text = ($output | Out-String)
     if ($text -match 'not trusted|terminated in a root') {
         Write-Warning 'Signature is present but the certificate is not trusted yet.'
-        Write-Warning 'Import .secrets\OpenCodeShell.cer into LocalMachine\TrustedPeople to complete the chain.'
+        Write-Warning 'Import .secrets\OpenInOpenCode.cer into LocalMachine\TrustedPeople to complete the chain.'
         exit 0
     }
     throw 'signtool verify failed'

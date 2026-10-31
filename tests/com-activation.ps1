@@ -18,8 +18,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-if (-not (Get-AppxPackage OpenCodeShell -ErrorAction SilentlyContinue)) {
-    throw 'OpenCodeShell is not registered for this user.'
+if (-not (Get-AppxPackage OpenInOpenCode -ErrorAction SilentlyContinue)) {
+    throw 'Open in OpenCode is not registered for this user.'
 }
 
 Add-Type -TypeDefinition @'

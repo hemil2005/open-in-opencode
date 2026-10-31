@@ -6,7 +6,7 @@
 .DESCRIPTION
     Copies plugin\tui.ts into the opencode config directory, where OpenCode discovers it:
 
-        %USERPROFILE%\.config\opencode\plugins\opencode-shell\tui.ts
+        %USERPROFILE%\.config\opencode\plugins\open-in-opencode\tui.ts
 
     The plugin is a thin front end over ocshell.exe. It is optional: everything it does is
     also available from a terminal.
@@ -20,7 +20,14 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
-if (-not $Target) { $Target = Join-Path $env:USERPROFILE '.config\opencode\plugins\opencode-shell' }
+if (-not $Target) { $Target = Join-Path $env:USERPROFILE '.config\opencode\plugins\open-in-opencode' }
+
+# Remove the pre-rename plugin directory, whichever action this is.
+$legacy = Join-Path $env:USERPROFILE '.config\opencode\plugins\opencode-shell'
+if (Test-Path $legacy) {
+    Remove-Item $legacy -Recurse -Force
+    Write-Host "removed legacy: $legacy"
+}
 
 if ($Uninstall) {
     if (Test-Path $Target) {

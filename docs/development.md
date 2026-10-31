@@ -38,13 +38,13 @@ To remove it:
 
 x64 uses mingw-w64. arm64 uses llvm-mingw, the only toolchain that targets Windows on ARM, looked up under `.tools\llvm`.
 
-`dist\` is a complete loose-package layout (`AppxManifest.xml`, `OpenCodeShell.dll`, `ocshell.exe`, placeholder exe, assets) ready for `Add-AppxPackage -Register`. It is git-ignored.
+`dist\` is a complete loose-package layout (`AppxManifest.xml`, `OpenInOpenCode.dll`, `ocshell.exe`, placeholder exe, assets) ready for `Add-AppxPackage -Register`. It is git-ignored.
 
 ## Package and sign
 
 ```powershell
 .\scripts\new-cert.ps1          # one-time: self-signed code-signing cert -> .secrets\
-.\scripts\package.ps1           # x64 + arm64 -> out\OpenCodeShell_<version>.msixbundle
+.\scripts\package.ps1           # x64 + arm64 -> out\OpenInOpenCode_<version>.msixbundle
 .\scripts\package.ps1 -Sign     # also signs and verifies the bundle
 ```
 
@@ -53,7 +53,7 @@ x64 uses mingw-w64. arm64 uses llvm-mingw, the only toolchain that targets Windo
 Before the bundle will install, its certificate must be trusted by the machine (admin, once):
 
 ```powershell
-Import-Certificate -FilePath .\.secrets\OpenCodeShell.cer `
+Import-Certificate -FilePath .\.secrets\OpenInOpenCode.cer `
     -CertStoreLocation Cert:\LocalMachine\TrustedPeople
 ```
 
@@ -74,13 +74,13 @@ This needs an interactive desktop session. It opens a scratch folder, right-clic
 Updates use the standard MSIX `.appinstaller` mechanism. There is no custom updater.
 
 ```powershell
-.\scripts\make-appinstaller.ps1 -Repo hemil2005/open-in-opencode   # -> out\OpenCodeShell.appinstaller
+.\scripts\make-appinstaller.ps1 -Repo hemil2005/open-in-opencode   # -> out\OpenInOpenCode.appinstaller
 ```
 
 Publish it as a release asset with a **fixed** name, so the URL clients check never changes:
 
 ```
-https://github.com/hemil2005/open-in-opencode/releases/latest/download/OpenCodeShell.appinstaller
+https://github.com/hemil2005/open-in-opencode/releases/latest/download/OpenInOpenCode.appinstaller
 ```
 
 Windows then updates the package itself (`AutomaticBackgroundTask`, every 8 hours). Users can check or apply updates manually:
@@ -94,6 +94,31 @@ ocshell settings set updateUri <url>     # override the built-in source
 `OnLaunch` update prompts only fire when the app is launched. This package has no launchable surface, so `AutomaticBackgroundTask` is the dependable path.
 
 The release workflow (`.github/workflows/release.yml`) builds and signs both architectures and publishes the bundle, the installer and the `.appinstaller`. It expects two repository secrets, `SIGNING_PFX_BASE64` and `SIGNING_PFX_PASSWORD`, and a tag matching the package version (for example `v0.6.0.0`).
+
+## CLI installers
+
+The one-liner sources are published as fixed-name release assets:
+
+| Source | Release asset | Purpose |
+|---|---|---|
+| `scripts/install-oneliner.ps1` | `install.ps1` | Checks the Windows build and installs the supported path |
+| `scripts/uninstall-oneliner.ps1` | `uninstall.ps1` | Removes the packaged and setup installs |
+
+The one-liner self-elevates once. On Windows 11 it trusts the certificate and runs
+`Add-AppxPackage -AppInstallerFile`; if that fails it downloads the bundle directly. On
+Windows 10 it runs the setup executable silently.
+
+`release.yml` also publishes fixed-name assets so the one-liner URL stays stable:
+`OpenInOpenCode.appinstaller`, `OpenInOpenCode.cer` and `OpenInOpenCodeSetup.exe`.
+
+Package-manager manifests are written but not submitted:
+
+```
+manifests\winget\OpenInOpenCode.OpenInOpenCode.yaml
+manifests\scoop\open-in-opencode.json
+```
+
+Refresh their SHA256 after every signed build.
 
 ## Windows 10 and classic verbs
 
@@ -117,7 +142,7 @@ The Windows 11 context menu cannot be extended through the registry. Only a **pa
 
 ```
 packaging\AppxManifest.xml
-|-- windows.comServer                     -> OpenCodeShell.dll, STA, surrogate (dllhost)
+|-- windows.comServer                     -> OpenInOpenCode.dll, STA, surrogate (dllhost)
 `-- windows.fileExplorerContextMenus
    |-- ItemType "Directory"               -> folder icons
    `-- ItemType "Directory\Background"    -> empty space inside a folder

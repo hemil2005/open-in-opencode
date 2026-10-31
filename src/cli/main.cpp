@@ -319,7 +319,7 @@ int CommandDoctor(const std::vector<std::wstring>& arguments) {
     return has_binary ? 0 : 1;
   }
 
-  Line(L"OpenCodeShell " + std::wstring(OC_IDENTITY_VERSION));
+  Line(L"Open in OpenCode " + std::wstring(OC_IDENTITY_VERSION));
   Line(L"package      : " + package);
   Line(L"certificate  : " + certificate);
   Line(L"settings     : " + oc::SettingsPath() + (loaded ? L"" : L"  (defaults)"));
@@ -500,7 +500,7 @@ int CommandUpdateApply() {
 
   wchar_t temp[MAX_PATH] = {};
   GetTempPathW(MAX_PATH, temp);
-  const std::wstring bundle = std::wstring(temp) + L"OpenCodeShell_" + info.version + L".msixbundle";
+  const std::wstring bundle = std::wstring(temp) + L"OpenInOpenCode_" + info.version + L".msixbundle";
 
   Line(L"downloading " + info.bundleUri);
   if (!oc::DownloadFile(info.bundleUri, bundle, &error)) return Fail(error);
@@ -513,7 +513,7 @@ int CommandUpdateApply() {
   // Capture PowerShell output: an exit code alone is not diagnosable.
   wchar_t temp_dir[MAX_PATH] = {};
   GetTempPathW(MAX_PATH, temp_dir);
-  const std::wstring console_log = std::wstring(temp_dir) + L"OpenCodeShell_update.log";
+  const std::wstring console_log = std::wstring(temp_dir) + L"OpenInOpenCode_update.log";
 
   SECURITY_ATTRIBUTES inherit;
   ZeroMemory(&inherit, sizeof(inherit));
@@ -592,7 +592,7 @@ int CommandRegistry(const std::vector<std::wstring>& arguments) {
 }
 
 void Usage() {
-  Line(L"OpenCodeShell " + std::wstring(OC_IDENTITY_VERSION));
+  Line(L"Open in OpenCode " + std::wstring(OC_IDENTITY_VERSION));
   Line(L"");
   Line(L"  ocshell launch <dir> [--continue] [--auto]");
   Line(L"  ocshell settings list [--json]");

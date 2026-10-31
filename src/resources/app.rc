@@ -1,3 +1,3 @@
 // Icon resource for the context menu entry.
-// GetIcon() returns "<path to OpenCodeShell.dll>",0, so the first icon resource wins.
+// GetIcon() returns "<path to the package DLL>",0, so the first icon resource wins.
 101 ICON "opencode.ico"
