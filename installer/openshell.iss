@@ -27,8 +27,11 @@ DefaultDirName={autopf}\OpenCodeShell
 DisableDirPage=yes
 DisableProgramGroupPage=yes
 PrivilegesRequired=admin
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir=..\out
 OutputBaseFilename=OpenCodeShellSetup-{#AppVersion}
+SetupIconFile=..\src\resources\opencode.ico
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -76,6 +79,11 @@ begin
   Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
        '-NoProfile -ExecutionPolicy Bypass -Command "Get-AppxPackage OpenCodeShell | Remove-AppxPackage"',
        '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
+  // Silent uninstall has nobody to ask, and silently dropping machine-wide trust would be
+  // surprising, so keep the certificate by default.
+  if UninstallSilent then
+    Exit;
 
   if MsgBox('Also remove the OpenCodeShell signing certificate from this computer?' + #13#10 +
             'Choose No to keep it, for example if you plan to reinstall.',
