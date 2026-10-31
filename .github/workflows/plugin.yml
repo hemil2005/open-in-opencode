@@ -5,11 +5,13 @@ on:
     paths:
       - "plugin/**"
       - "scripts/install-plugin.ps1"
+      - "scripts/test-install-plugin.ps1"
       - ".github/workflows/plugin.yml"
   pull_request:
     paths:
       - "plugin/**"
       - "scripts/install-plugin.ps1"
+      - "scripts/test-install-plugin.ps1"
       - ".github/workflows/plugin.yml"
 
 jobs:
@@ -34,3 +36,8 @@ jobs:
 
       - name: Test
         run: bun test
+
+      - name: Check installer layout
+        working-directory: .
+        shell: pwsh
+        run: ./scripts/test-install-plugin.ps1

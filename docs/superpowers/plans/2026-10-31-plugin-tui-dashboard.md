@@ -1,6 +1,6 @@
 # Plugin TUI Dashboard — Implementation Plan
 
-**Status:** Approved. Phases 0-1 are committed; Phase 2 is implemented and locally verified, pending commit.
+**Status:** Phases 0-8 implemented and locally verified. Phase 9 automated checks, the installer layout check and real ConPTY runs at 80x24, 120x40 and 60x20 pass. Remaining manual follow-ups: light-theme rendering and a real Windows Terminal clipboard paste (both carried over from Phase 0).
 **Date:** 2026-10-31
 **Scope:** `plugin/`, `scripts/install-plugin.ps1`, plugin tooling, plugin CI, plugin docs.
 **Out of scope:** the Windows context-menu extension, the MSIX installer, the CLI launch path, and any release/publish step.
@@ -768,6 +768,8 @@ Acceptance:
 - At 80x24, the primary rows are visible and the body scrolls.
 - No `spawnSync` remains in `plugin/`.
 
+**Phase 4 results (2026-10-31):** `tui.ts` is now a thin `Plugin.define` wrapper. `ui/register.tsx` owns the route, `/ocshell` command and cleanup; `ui/dashboard.tsx` renders the full-page page; `lib/state.ts` loads doctor/settings/terminals with `Promise.allSettled`, keeps partial successes, stores a schema-versioned cache and refreshes the 15-minute update cache in the background. A page-scoped `base` keymap layer handles up/down/j/k, Enter, `r`, `c`, `d` and Escape. The diagnostics detail is a full-page view rather than a host dialog so it stays legible at 80x24. Real ConPTY checks confirmed `/ocshell`, navigation, refresh, details, dialog Escape, page Escape and a populated second open at 80x24; 120x40 and 60x20 also render correctly. No `spawnSync` remains in tracked plugin sources.
+
 Commit: `feat(plugin): add full-page dashboard route`.
 
 ### Phase 5 — Settings editors
@@ -813,6 +815,8 @@ Acceptance:
 - The terminal picker marks the current terminal and explains unsupported ones.
 - Two-step terminal writes leave a readable state even if the second write fails.
 
+**Phase 5 results (2026-10-31):** `ui/editors.ts` implements the searchable terminal picker, `opencode` path editor, boolean toggles, update source editor, terminal mode selector, and custom path/argument editors. Every mutation goes through `ocshell.exe`, validates before writing, and re-reads settings afterward; a failed second terminal write still refreshes the persisted first step. `test/editors.test.ts` asserts invalid input never calls `settings set`, valid writes use the expected keys/values, and failures set a persistent error. The terminal picker, toggle write and restore were also exercised in a real 80x24 ConPTY session.
+
 Commit: `feat(plugin): edit settings from the dashboard`.
 
 ### Phase 6 — Diagnostics and report copy
@@ -850,6 +854,8 @@ Acceptance:
 - Full error output is readable and copyable.
 - The report contains no settings values that are not already visible in the dashboard.
 
+**Phase 6 results (2026-10-31):** `buildChecks` and `copyText` live in `lib/report.ts`; `ui/diagnostics.tsx` renders the checks and the full report in a scrollable full-page view. Copy tries OSC 52, then `clip.exe` through the async process runner, then a temp file, and reports which transport succeeded. `report.test.ts` covers check states, report completeness, the no-`undefined` rule, copy fallback order and copy failure. A real 80x24 ConPTY session confirmed `c` copied via OSC 52, the diagnostics view opened and scrolled, the report copied from inside it, and Escape returned to the dashboard.
+
 Commit: `feat(plugin): add diagnostics and report copy`.
 
 ### Phase 7 — Update check and apply
@@ -885,6 +891,8 @@ Acceptance:
 - Up-to-date, available, check-failed, apply-success, apply-failure, and not-installed states are distinct.
 - No short toast is the only record of a failure.
 - The 10-minute timeout is enforced.
+
+**Phase 7 results (2026-10-31):** `ui/updates.ts` implements the apply flow with the 10-minute timeout, last-five-line progress, not-installed guard and elevation detection (UAC/access-denied text or timeout). `updates.test.ts` covers not-installed, success, streaming, timeout, abort and ordinary failure. The dashboard checks the cached update in the background, forces a check on Enter/refresh when needed, and keeps failures in the persistent banner. A real 80x24 session confirmed the update-check failure path with the current empty built-in source; apply was not run because it would modify the installed package.
 
 Commit: `feat(plugin): add update check and apply flow`.
 
@@ -931,6 +939,8 @@ Acceptance:
 - Docs match the actual keys and file tree.
 - No stale "four dialog options" text remains.
 
+**Phase 8 results (2026-10-31):** `scripts/install-plugin.ps1` now copies `tui.ts`, `lib/` and `ui/`, removes stale runtime directories, and never copies tooling or tests. `scripts/test-install-plugin.ps1` installs to a temp target, checks every runtime module, rejects `package.json`/`tsconfig.json`/`bun.lock`/`test/`, then uninstalls; it passes locally. The plugin workflow runs the same check. README, `docs/development.md` and CHANGELOG describe the dashboard, keys, multi-file layout, Bun checks, JSX pragma and installer behavior.
+
 Commit: `chore(plugin): install multi-file plugin and document it`.
 
 ### Phase 9 — Verification
@@ -953,6 +963,8 @@ Acceptance:
 - The manual matrix has no open `P0` or `P1` issues.
 - The dashboard is usable at 80x24 with the default theme.
 - The old blocking behavior is gone.
+
+**Phase 9 results (2026-10-31):** `cd plugin; bun run typecheck` and `bun test` pass locally: 113 tests across 8 files, 441 assertions. `scripts/test-install-plugin.ps1` passes. Real OpenCode 2.2.5 ConPTY runs verified the dashboard at 80x24, 120x40 and 60x20; `/ocshell`, selection, the terminal picker, a boolean toggle (and restore), `r`, `c` copy via OSC 52, `d` diagnostics with scrolling and copy, update-check failure, dialog Escape, page Escape, and a populated second open. Update apply was not run because it would modify the installed package. Light-theme rendering and a real Windows Terminal clipboard paste remain manual follow-ups from Phase 0.
 
 ---
 

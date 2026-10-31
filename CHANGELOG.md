@@ -6,6 +6,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this pr
 
 ## [Unreleased]
 
+### Added
+
+- Full-page `/ocshell` dashboard in the optional opencode plugin: health, live paths,
+  terminal choice, every setting, update state and diagnostics.
+- Searchable terminal picker, validated `opencode` and custom-terminal paths, update-source
+  validation and a diagnostics report with OSC 52 / `clip.exe` / temp-file fallbacks.
+- Async `ocshell` runner with per-call timeouts, abort support, 1 MiB per-stream output caps
+  and typed errors. The plugin no longer blocks the TUI with `spawnSync`.
+- Bun/TypeScript test tooling, plugin CI and an installer layout smoke check.
+
+### Changed
+
+- `scripts/install-plugin.ps1` now installs `tui.ts`, `lib/` and `ui/`, and removes stale
+  runtime directories before copying. Tooling and tests stay out of the installed plugin.
+- The plugin requires OpenCode 2.2.5 or newer.
+
 ## [0.7.0.1] - 2026-10-31
 
 ### Changed

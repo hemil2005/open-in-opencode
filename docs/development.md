@@ -69,6 +69,44 @@ A loose developer install and a packaged install of the same identity cannot coe
 
 This needs an interactive desktop session. It opens a scratch folder, right-clicks the background and asserts the menu entry exists. It never invokes the entry, so no opencode process is started.
 
+## Plugin development
+
+The optional TUI plugin lives in `plugin/` and is a multi-file Bun/TypeScript project:
+
+```
+plugin/
+  tui.ts                    entry: Plugin.define, delegates to ui/register
+  ui/register.tsx           full-page route and /ocshell command
+  ui/dashboard.tsx          dashboard layout, selection, keys and actions
+  ui/rows.ts                pure row model (labels, values, tones, disabled reasons)
+  ui/editors.ts             terminal picker and settings prompts
+  ui/diagnostics.tsx        diagnostics checks and full report view
+  ui/updates.ts             update apply flow and progress
+  lib/ocshell.ts            async process runner, resolution and typed errors
+  lib/state.ts              snapshot loading, update TTL and cache shapes
+  lib/format.ts             formatting, health, sorting and validation
+  lib/report.ts             plain-text report and clipboard fallback
+  lib/types.ts              CLI JSON types and runtime shape guards
+  test/                     Bun tests and fixtures
+```
+
+Run the checks from `plugin/`:
+
+```powershell
+cd plugin
+bun install --frozen-lockfile
+bun run typecheck
+bun test
+```
+
+JSX files must start with `/** @jsxImportSource @opentui/solid */`. The installer copies only the runtime files, `tui.ts`, `lib/` and `ui/`; it never copies `package.json`, `tsconfig.json`, `bun.lock` or `test/`. Verify the layout with:
+
+```powershell
+.\scripts\test-install-plugin.ps1
+```
+
+The plugin tests do not need OpenCode running. Manual TUI checks use OpenCode 2.2.5 or newer. `update apply` has no cancel: if you leave the page while it runs, the installer may continue; the 10-minute timeout terminates the direct child only.
+
 ## Updates and releases
 
 Updates use the standard MSIX `.appinstaller` mechanism. There is no custom updater.
@@ -168,7 +206,7 @@ packaging\appinstaller.template.xml   auto-update manifest (rendered per release
 packaging\Assets\            package logos
 installer\openshell.iss      Inno Setup installer
 installer\install-package.ps1   cert trust + Add-AppxPackage (also standalone)
-plugin\tui.ts                optional opencode plugin (/ocshell)
+plugin\                      optional opencode dashboard plugin (tui.ts, lib\, ui\, test\)
 scripts\                     build / package / sign / installer / appinstaller / plugin / install
 tests\menu-smoke-test.ps1    end-to-end menu smoke test
 tests\com-activation.ps1     headless COM activation check (ARM64 CI)

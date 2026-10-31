@@ -93,7 +93,7 @@ Right-click a folder, or empty space inside one, and choose **Open in OpenCode**
 - **Finds your terminal**: Windows Terminal, Alacritty, WezTerm, kitty, Ghostty, ConEmu, mintty and others, with the Windows console as fallback.
 - **Crash-safe**: runs out of process, so a fault can't take down Explorer.
 - **Signed package** with standard MSIX auto-updates.
-- **Optional opencode plugin** that adds a `/ocshell` command to the TUI.
+- **Optional opencode plugin** that opens a full-page `/ocshell` dashboard in the TUI.
 
 ## Compatibility
 
@@ -138,7 +138,9 @@ Argument templates understand `{dir}`, `{command}`, `{commandline}` and `{pscomm
 
 ### Inside opencode
 
-An optional plugin adds a `/ocshell` command to the opencode TUI to show settings, change the terminal, override the opencode path and check for updates.
+An optional plugin opens a full-page dashboard with `/ocshell`. It shows package and certificate health, the `ocshell` and `opencode` paths, the current terminal, every setting, update state and diagnostics. Writes go through `ocshell.exe`, so the CLI remains the source of truth. OpenCode 2.2.5 or newer is required.
+
+Keys: up/down or `k`/`j` select, Enter change, `r` refresh, `c` copy the diagnostics report, `d` open diagnostics, Escape go back. The terminal picker searches detected terminals and disables ones without a launch template. Invalid paths and update URLs are rejected before anything is written. Copy uses OSC 52 first, then `clip.exe`, then a temporary file whose path is shown.
 
 ```powershell
 .\scripts\install-plugin.ps1              # installs to %USERPROFILE%\.config\opencode\plugins\open-in-opencode
