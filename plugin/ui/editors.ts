@@ -2,16 +2,19 @@ import { existsSync, statSync } from "node:fs"
 import type { Plugin } from "@opencode/plugin/tui"
 
 import {
+  canAddLaunchOption,
   filterTerminals,
   formatArgs,
   sortTerminals,
   validateBinaryPath,
   validateCustomArgs,
+  validateLaunchFlags,
+  validateLaunchLabel,
   validateUpdateUri,
   type FileProbe,
 } from "../lib/format"
 import { WRITE_TIMEOUT_MS, type Runner } from "../lib/ocshell"
-import type { RunResult, Snapshot, SourceError } from "../lib/types"
+import type { LaunchOption, RunResult, Snapshot, SourceError } from "../lib/types"
 
 type Context = Plugin.Context
 
@@ -336,6 +339,171 @@ export async function editCustomPath(hooks: EditorHooks): Promise<void> {
     hooks,
     [["settings", "set", "terminal.customPath", validation.value || "-"]],
     validation.value ? "Custom terminal path updated" : "Custom terminal path cleared",
+  )
+}
+
+async function launchOptionName(
+  hooks: EditorHooks,
+  title: string,
+  value: string,
+): Promise<string | undefined> {
+  const answer = await hooks.dialog(() =>
+    hooks.context.ui.dialog.prompt({
+      title,
+      description: "This name appears in the Explorer context menu.",
+      placeholder: "Fast model",
+      value,
+    }),
+  )
+  if (answer === undefined) return undefined
+
+  const validation = validateLaunchLabel(answer)
+  if (!validation.ok) {
+    await hooks.dialog(() =>
+      hooks.context.ui.dialog.alert({
+        title: "Invalid launch option",
+        message: validation.message,
+      }),
+    )
+    return undefined
+  }
+  return validation.value
+}
+
+async function launchOptionFlags(
+  hooks: EditorHooks,
+  title: string,
+  value: string,
+): Promise<string | undefined> {
+  const answer = await hooks.dialog(() =>
+    hooks.context.ui.dialog.prompt({
+      title,
+      description:
+        "Type flags exactly as they should follow opencode. Include - or --; the opencode prefix is automatic.",
+      placeholder: "--model fast",
+      value,
+    }),
+  )
+  if (answer === undefined) return undefined
+
+  const validation = validateLaunchFlags(answer)
+  if (!validation.ok) {
+    await hooks.dialog(() =>
+      hooks.context.ui.dialog.alert({
+        title: "Invalid launch flags",
+        message: validation.message,
+      }),
+    )
+    return undefined
+  }
+  return answer.trim()
+}
+
+export async function addLaunchOption(hooks: EditorHooks): Promise<void> {
+  const settings = hooks.snapshot.settings
+  if (!settings) return
+
+  if (!canAddLaunchOption(settings.launchOptions)) {
+    await hooks.dialog(() =>
+      hooks.context.ui.dialog.alert({
+        title: "Launch options",
+        message: "At most 3 custom launch options can be defined. Remove one first.",
+      }),
+    )
+    return
+  }
+
+  const label = await launchOptionName(hooks, "New launch option name", "")
+  if (label === undefined) return
+
+  const flags = await launchOptionFlags(hooks, "opencode flags", "")
+  if (flags === undefined) return
+
+  await writeCommands(
+    hooks,
+    [["settings", "launch", "add", label, flags]],
+    `Launch option "${label}" added`,
+  )
+}
+
+export async function editLaunchOption(
+  hooks: EditorHooks,
+  option: LaunchOption,
+): Promise<void> {
+  if (option.builtin) {
+    await hooks.dialog(() =>
+      hooks.context.ui.dialog.alert({
+        title: "Built-in launch option",
+        message: "Built-in options cannot be renamed or edited. Hide or reorder it instead.",
+      }),
+    )
+    return
+  }
+
+  const label = await launchOptionName(hooks, "Rename launch option", option.label)
+  if (label === undefined) return
+
+  const flags = await launchOptionFlags(hooks, "opencode flags", option.flags)
+  if (flags === undefined) return
+
+  await writeCommands(
+    hooks,
+    [["settings", "launch", "update", option.id, label, flags]],
+    `Launch option "${label}" updated`,
+  )
+}
+
+export async function removeLaunchOption(
+  hooks: EditorHooks,
+  option: LaunchOption,
+): Promise<void> {
+  if (option.builtin) {
+    await hooks.dialog(() =>
+      hooks.context.ui.dialog.alert({
+        title: "Built-in launch option",
+        message: "Built-in options cannot be removed. Hide it instead.",
+      }),
+    )
+    return
+  }
+
+  const confirmed = await hooks.dialog(() =>
+    hooks.context.ui.dialog.confirm({
+      title: `Remove "${option.label}"?`,
+      message: "The context-menu entry will be deleted. This cannot be undone.",
+      label: { confirm: "Remove", cancel: "Keep" },
+    }),
+  )
+  if (!confirmed) return
+
+  await writeCommands(
+    hooks,
+    [["settings", "launch", "remove", option.id]],
+    `Launch option "${option.label}" removed`,
+  )
+}
+
+export async function setLaunchOptionHidden(
+  hooks: EditorHooks,
+  option: LaunchOption,
+  hidden: boolean,
+): Promise<void> {
+  await writeCommands(
+    hooks,
+    [["settings", "launch", "hide", option.id, hidden ? "true" : "false"]],
+    hidden ? `"${option.label}" hidden` : `"${option.label}" shown`,
+  )
+}
+
+export async function moveLaunchOption(
+  hooks: EditorHooks,
+  option: LaunchOption,
+  up: boolean,
+): Promise<void> {
+  await writeCommands(
+    hooks,
+    [["settings", "launch", "move", option.id, up ? "up" : "down"]],
+    `"${option.label}" moved ${up ? "up" : "down"}`,
   )
 }
 

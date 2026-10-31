@@ -23,7 +23,7 @@ import type {
  * `snapshot.errors`; the other sources keep their values.
  */
 
-export const SNAPSHOT_SCHEMA = 1
+export const SNAPSHOT_SCHEMA = 2
 export const UPDATE_SCHEMA = 1
 export const UPDATE_TTL_MS = 15 * 60_000
 

@@ -23,6 +23,7 @@ try {
             'ui/dashboard.tsx',
             'ui/rows.ts',
             'ui/editors.ts',
+            'ui/launch.tsx',
             'ui/updates.ts',
             'ui/diagnostics.tsx'
         )) {

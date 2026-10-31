@@ -14,6 +14,7 @@ import {
   decodeSettings,
   decodeTerminals,
   decodeUpdateInfo,
+  defaultLaunchOptions,
   type Doctor,
   type Settings,
   type Terminal,
@@ -99,6 +100,7 @@ const settings: Settings = {
     customPath: "",
     customArgs: [],
   },
+  launchOptions: defaultLaunchOptions(),
 }
 
 const terminals: Terminal[] = [
@@ -283,6 +285,43 @@ describe("json", () => {
     h.child.close(0)
 
     expect(await promise).toEqual({ ok: true, value: settings })
+  })
+
+  test("decodes custom launch options", async () => {
+    const h = harness()
+    const promise = h.runner.json(["settings", "list", "--json"], decodeSettings)
+
+    const custom = {
+      id: "custom-1",
+      label: "Fast model",
+      flags: "--model fast",
+      builtin: false,
+      hidden: true,
+    }
+    const withLaunch = { ...settings, launchOptions: [...settings.launchOptions, custom] }
+    h.child.stdout.push(JSON.stringify(withLaunch))
+    h.child.close(0)
+
+    const result = await promise
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value.launchOptions).toEqual(withLaunch.launchOptions)
+    }
+  })
+
+  test("defaults launch options when an older CLI omits them", async () => {
+    const h = harness()
+    const promise = h.runner.json(["settings", "list", "--json"], decodeSettings)
+
+    const { launchOptions: _ignored, ...legacy } = settings
+    h.child.stdout.push(JSON.stringify(legacy))
+    h.child.close(0)
+
+    const result = await promise
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value.launchOptions).toEqual(defaultLaunchOptions())
+    }
   })
 
   test("decodes terminals", async () => {

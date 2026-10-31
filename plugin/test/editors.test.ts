@@ -2,22 +2,30 @@ import { describe, expect, test } from "bun:test"
 import type { Plugin } from "@opencode/plugin/tui"
 
 import type { RunOptions, Runner } from "../lib/ocshell"
-import type { Result, RunResult, Snapshot, SourceError } from "../lib/types"
+import type { LaunchOption, Result, RunResult, Snapshot, SourceError } from "../lib/types"
 import {
+  addLaunchOption,
   editBinaryPath,
   editCustomArgs,
   editCustomPath,
+  editLaunchOption,
   editUpdateUri,
+  moveLaunchOption,
   pickTerminal,
+  removeLaunchOption,
   selectTerminalMode,
+  setLaunchOptionHidden,
   toggleSetting,
   type EditorHooks,
 } from "../ui/editors"
+import { defaultLaunchOptions } from "../lib/types"
 import { makeSnapshot, settingsWith } from "./fixtures"
 
 type HarnessOptions = {
   prompt?: string
+  prompts?: string[]
   select?: string
+  confirm?: boolean
   fail?: boolean
   snapshot?: Snapshot
 }
@@ -32,12 +40,12 @@ function harness(options: HarnessOptions = {}) {
   const context = {
     ui: {
       dialog: {
-        prompt: async () => options.prompt,
+        prompt: async () => (options.prompts ? options.prompts.shift() : options.prompt),
         alert: async (alert: { message: string }) => {
           alerts.push(alert.message)
         },
         select: async () => options.select,
-        confirm: async () => true,
+        confirm: async () => options.confirm ?? true,
       },
       toast: {
         show: (toast: { message: string; variant?: string }) => {
@@ -232,5 +240,97 @@ describe("setting editors", () => {
       message: "boom",
     })
     expect(h.refreshArgs).toEqual([undefined])
+  })
+})
+
+describe("launch option editors", () => {
+  const customOption: LaunchOption = {
+    id: "custom-1",
+    label: "Fast model",
+    flags: "--model fast",
+    builtin: false,
+    hidden: false,
+  }
+
+  test("adds a custom option after validating both prompts", async () => {
+    const h = harness({ prompts: ["Fast model", "--model fast"] })
+
+    await addLaunchOption(h.hooks)
+
+    expect(h.calls).toEqual([
+      ["settings", "launch", "add", "Fast model", "--model fast"],
+    ])
+  })
+
+  test("never writes invalid flags", async () => {
+    const h = harness({ prompts: ["Fast model", "continue"] })
+
+    await addLaunchOption(h.hooks)
+
+    expect(h.calls).toEqual([])
+    expect(h.alerts.at(-1)).toContain("must start with - or --")
+  })
+
+  test("refuses a fourth custom option", async () => {
+    const h = harness({
+      snapshot: makeSnapshot({
+        settings: settingsWith({
+          launchOptions: [
+            ...defaultLaunchOptions(),
+            customOption,
+            { ...customOption, id: "custom-2", label: "Second" },
+            { ...customOption, id: "custom-3", label: "Third" },
+          ],
+        }),
+      }),
+    })
+
+    await addLaunchOption(h.hooks)
+
+    expect(h.calls).toEqual([])
+    expect(h.alerts.at(-1)).toContain("At most 3")
+  })
+
+  test("updates a custom option", async () => {
+    const h = harness({ prompts: ["Renamed", "--auto"] })
+
+    await editLaunchOption(h.hooks, customOption)
+
+    expect(h.calls).toEqual([
+      ["settings", "launch", "update", "custom-1", "Renamed", "--auto"],
+    ])
+  })
+
+  test("does not edit or remove built-ins", async () => {
+    const builtin = defaultLaunchOptions()[0]!
+    const h = harness()
+
+    await editLaunchOption(h.hooks, builtin)
+    await removeLaunchOption(h.hooks, builtin)
+
+    expect(h.calls).toEqual([])
+    expect(h.alerts).toHaveLength(2)
+    expect(h.alerts[0]).toContain("Built-in")
+    expect(h.alerts[1]).toContain("Built-in")
+  })
+
+  test("removes a custom option after confirmation", async () => {
+    const h = harness({ confirm: true })
+
+    await removeLaunchOption(h.hooks, customOption)
+
+    expect(h.calls).toEqual([["settings", "launch", "remove", "custom-1"]])
+  })
+
+  test("hides and moves a custom option", async () => {
+    const h = harness()
+
+    await setLaunchOptionHidden(h.hooks, customOption, true)
+    await moveLaunchOption(h.hooks, customOption, true)
+
+    expect(h.calls).toEqual([
+      ["settings", "launch", "hide", "custom-1", "true"],
+      ["settings", "launch", "move", "custom-1", "up"],
+    ])
   })
 })

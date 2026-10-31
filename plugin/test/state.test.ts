@@ -13,6 +13,7 @@ import {
   loadSnapshot,
   snapshotToCache,
   updateToCache,
+  SNAPSHOT_SCHEMA,
   UPDATE_SCHEMA,
   UPDATE_TTL_MS,
 } from "../lib/state"
@@ -212,7 +213,7 @@ describe("cache", () => {
     )
 
     expect(cache).toMatchObject({
-      schema: 1,
+      schema: SNAPSHOT_SCHEMA,
       savedAt: 500,
       ocshellPath: "C:\\ocshell.exe",
       updateCheckedAt: 10,

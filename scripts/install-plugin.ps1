@@ -69,7 +69,7 @@ Write-Host "installed: $Target"
 Write-Host ''
 Write-Host 'Restart opencode, then run /ocshell to open the dashboard.'
 Write-Host 'The dashboard can change the terminal, override the opencode path, toggle settings,'
-Write-Host 'check for updates and copy a diagnostics report.'
+Write-Host 'manage custom context-menu launch options, check for updates and copy a diagnostics report.'
 
 if (-not (Get-Command opencode -ErrorAction SilentlyContinue)) {
     Write-Warning 'opencode was not found on PATH; the plugin will load once it is installed.'

@@ -79,7 +79,8 @@ plugin/
   ui/register.tsx           full-page route and /ocshell command
   ui/dashboard.tsx          dashboard layout, selection, keys and actions
   ui/rows.ts                pure row model (labels, values, tones, disabled reasons)
-  ui/editors.ts             terminal picker and settings prompts
+  ui/editors.ts             terminal picker, settings prompts and launch-option editors
+  ui/launch.tsx             context-menu launch-option manager
   ui/diagnostics.tsx        diagnostics checks and full report view
   ui/updates.ts             update apply flow and progress
   lib/ocshell.ts            async process runner, resolution and typed errors
@@ -195,7 +196,7 @@ Explorer activates the COM class only while building a menu, so the DLL is loade
 ## Project layout
 
 ```
-src\core\                    settings, terminals, binary resolution, launch, log, json, http, update, registry
+src\core\                    settings, launch options, terminals, binary resolution, launch, log, json, http, update, registry
 src\extension\command.cpp    IExplorerCommand (Windows 11 packaged verb)
 src\cli\main.cpp             ocshell.exe (launch, settings, doctor, update, registry, selftest)
 src\noop.cpp                 placeholder exe required by the manifest

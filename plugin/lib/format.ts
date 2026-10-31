@@ -1,4 +1,4 @@
-import type { Doctor, Settings, Terminal, UpdateInfo } from "./types"
+import type { Doctor, LaunchOption, Settings, Terminal, UpdateInfo } from "./types"
 
 /**
  * Pure formatting, health, and validation helpers.
@@ -279,6 +279,76 @@ export function validateCustomArgs(value: string): Validation<string[]> {
 
 export function formatArgs(args: string[]): string {
   return args.map(quoteArg).join(" ")
+}
+
+export function customLaunchCount(options: LaunchOption[]): number {
+  return options.filter((option) => !option.builtin).length
+}
+
+export function canAddLaunchOption(options: LaunchOption[]): boolean {
+  return customLaunchCount(options) < 3
+}
+
+export function launchSummary(options: LaunchOption[]): string {
+  const visible = options.filter((option) => !option.hidden).length
+  const custom = customLaunchCount(options)
+  const hidden = options.length - visible
+  let summary = `${visible} shown, ${custom}/3 custom`
+  if (hidden > 0) summary += `, ${hidden} hidden`
+  return summary
+}
+
+export function formatLaunchOption(option: LaunchOption): string {
+  const flags = option.flags.trim()
+  return flags ? `${option.label}  ${flags}` : option.label
+}
+
+export function validateLaunchLabel(value: string): Validation {
+  const trimmed = value.trim()
+  if (!trimmed) return { ok: false, message: "Enter a name for the launch option." }
+  if (trimmed.length > 60) {
+    return { ok: false, message: "Launch option names are limited to 60 characters." }
+  }
+  if (/[\u0000-\u001f\u007f]/.test(trimmed)) {
+    return { ok: false, message: "Launch option names cannot contain tabs or line breaks." }
+  }
+  return { ok: true, value: trimmed }
+}
+
+export function validateLaunchFlags(value: string): Validation<string[]> {
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return { ok: false, message: "Enter at least one flag, for example --continue." }
+  }
+  if (trimmed.length > 300) {
+    return { ok: false, message: "Flags are limited to 300 characters." }
+  }
+  if (/[\u0000-\u001f\u007f]/.test(trimmed)) {
+    return { ok: false, message: "Flags cannot contain tabs or line breaks." }
+  }
+
+  let quotes = 0
+  for (const character of trimmed) {
+    if (character === '"') quotes += 1
+  }
+  if (quotes % 2 !== 0) {
+    return { ok: false, message: "Flags contain an unmatched quote." }
+  }
+
+  const parsed = validateCustomArgs(trimmed)
+  if (!parsed.ok || parsed.value.length === 0) {
+    return { ok: false, message: "Enter at least one flag, for example --continue." }
+  }
+
+  const first = parsed.value[0] ?? ""
+  if (first === "-" || first === "--" || !first.startsWith("-")) {
+    return {
+      ok: false,
+      message: "Flags must start with - or --. The opencode prefix is automatic.",
+    }
+  }
+
+  return { ok: true, value: parsed.value }
 }
 
 function quoteArg(value: string): string {

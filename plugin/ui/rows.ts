@@ -1,9 +1,12 @@
 import {
+  canAddLaunchOption,
+  customLaunchCount,
   formatArgs,
   formatBinary,
   formatTerminal,
   formatUpdate,
   health,
+  launchSummary,
 } from "../lib/format"
 import type { Snapshot } from "../lib/types"
 
@@ -32,6 +35,8 @@ export type RowAction =
   | "terminalMode"
   | "customPath"
   | "customArgs"
+  | "launchOptions"
+  | "launchAdd"
 
 export type SectionId = "status" | "configuration" | "maintenance" | "advanced"
 
@@ -325,6 +330,46 @@ export function buildRows(snapshot: Snapshot): RowModel {
       },
     ),
   ]
+
+  const launchOptions = settings?.launchOptions ?? []
+  const launchCustomCount = customLaunchCount(launchOptions)
+  const launchCanAdd = canAddLaunchOption(launchOptions)
+
+  advancedRows.push(
+    row(
+      "advanced",
+      "launchOptions",
+      "Launch options",
+      settings ? launchSummary(launchOptions) : "unavailable",
+      settings ? "normal" : "error",
+      "launchOptions",
+      {
+        detail: settings
+          ? "Manage context-menu entries, their order and visibility."
+          : "Settings are unavailable.",
+        ...guard(writeDisabled, writeReason),
+      },
+    ),
+    row(
+      "advanced",
+      "launchAdd",
+      "Add new launch option",
+      !settings ? "unavailable" : `${launchCustomCount}/3 custom`,
+      !settings ? "error" : launchCanAdd ? "normal" : "muted",
+      "launchAdd",
+      {
+        detail: !settings
+          ? "Settings are unavailable."
+          : launchCanAdd
+            ? "Add a custom context-menu entry with opencode flags."
+            : "3 custom launch options already defined.",
+        ...guard(
+          writeDisabled || !launchCanAdd,
+          writeDisabled ? writeReason : "3 custom launch options already defined.",
+        ),
+      },
+    ),
+  )
 
   if (settings?.terminal.mode === "custom") {
     const customPath = settings.terminal.customPath.trim()

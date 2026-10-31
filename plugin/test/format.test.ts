@@ -1,19 +1,24 @@
 import { describe, expect, test } from "bun:test"
 
 import {
+  canAddLaunchOption,
   filterTerminals,
   formatArgs,
   formatBinary,
   formatTerminal,
   formatUpdate,
   health,
+  launchSummary,
   sortTerminals,
   truncateMiddle,
   validateBinaryPath,
   validateCustomArgs,
+  validateLaunchFlags,
+  validateLaunchLabel,
   validateUpdateUri,
   type FileProbe,
 } from "../lib/format"
+import { defaultLaunchOptions } from "../lib/types"
 import { doctor, doctorWith, settings, settingsWith, terminals, update } from "./fixtures"
 
 const fileProbe: FileProbe = () => "file"
@@ -322,6 +327,50 @@ describe("validateUpdateUri", () => {
     expect(validateUpdateUri("example.test").ok).toBe(false)
     expect(validateUpdateUri("http://").ok).toBe(false)
     expect(validateUpdateUri("javascript:alert(1)").ok).toBe(false)
+  })
+})
+
+describe("launch options", () => {
+  test("summarizes visible and custom entries", () => {
+    expect(launchSummary(defaultLaunchOptions())).toBe("3 shown, 0/3 custom")
+
+    const options = [
+      ...defaultLaunchOptions(),
+      {
+        id: "custom-1",
+        label: "Fast model",
+        flags: "--model fast",
+        builtin: false,
+        hidden: true,
+      },
+    ]
+    expect(launchSummary(options)).toBe("3 shown, 1/3 custom, 1 hidden")
+    expect(canAddLaunchOption(options)).toBe(true)
+    const two = { ...options[3]!, id: "custom-2" }
+    const three = { ...options[3]!, id: "custom-3" }
+    expect(canAddLaunchOption([...options, two])).toBe(true)
+    expect(canAddLaunchOption([...options, two, three])).toBe(false)
+  })
+
+  test("validates names", () => {
+    expect(validateLaunchLabel("  Fast model  ")).toEqual({ ok: true, value: "Fast model" })
+    expect(validateLaunchLabel("").ok).toBe(false)
+    expect(validateLaunchLabel("x".repeat(61)).ok).toBe(false)
+    expect(validateLaunchLabel("bad\nname").ok).toBe(false)
+  })
+
+  test("validates flags with an automatic opencode prefix", () => {
+    expect(validateLaunchFlags("--model fast")).toEqual({
+      ok: true,
+      value: ["--model", "fast"],
+    })
+    expect(validateLaunchFlags("--continue").ok).toBe(true)
+    expect(validateLaunchFlags("-h").ok).toBe(true)
+    expect(validateLaunchFlags("continue").ok).toBe(false)
+    expect(validateLaunchFlags("-").ok).toBe(false)
+    expect(validateLaunchFlags("--").ok).toBe(false)
+    expect(validateLaunchFlags('--flag "unterminated').ok).toBe(false)
+    expect(validateLaunchFlags("--flag\nvalue").ok).toBe(false)
   })
 })
 

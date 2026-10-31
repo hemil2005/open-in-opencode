@@ -1,6 +1,6 @@
 # Plugin TUI Dashboard — Implementation Plan
 
-**Status:** Phases 0-8 implemented and locally verified. Phase 9 automated checks, the installer layout check and real ConPTY runs at 80x24, 120x40 and 60x20 pass. Remaining manual follow-ups: light-theme rendering and a real Windows Terminal clipboard paste (both carried over from Phase 0).
+**Status:** Phases 0-9 implemented and locally verified. The Phase 10 custom context-menu launch-option follow-up is implemented and verified through the plugin, CLI, COM enumeration harness and Windows 10 registry path. Remaining manual follow-ups: light-theme rendering and a real Windows Terminal clipboard paste (both carried over from Phase 0), and reinstalling a packaged MSIX to exercise the menu in Explorer itself.
 **Date:** 2026-10-31
 **Scope:** `plugin/`, `scripts/install-plugin.ps1`, plugin tooling, plugin CI, plugin docs.
 **Out of scope:** the Windows context-menu extension, the MSIX installer, the CLI launch path, and any release/publish step.
@@ -171,6 +171,8 @@ Open in OpenCode                                             0.7.0.0   ok
    Terminal mode  auto
    Custom path    not set
    Custom args    not set
+   Launch options 3 shown, 0/3 custom
+   Add new launch option 0/3 custom
 
 --------------------------------------------------------------------------
  [enter] change  [r] refresh  [c] copy report  [esc] back       updated 12:34
@@ -965,6 +967,42 @@ Acceptance:
 - The old blocking behavior is gone.
 
 **Phase 9 results (2026-10-31):** `cd plugin; bun run typecheck` and `bun test` pass locally: 113 tests across 8 files, 441 assertions. `scripts/test-install-plugin.ps1` passes. Real OpenCode 2.2.5 ConPTY runs verified the dashboard at 80x24, 120x40 and 60x20; `/ocshell`, selection, the terminal picker, a boolean toggle (and restore), `r`, `c` copy via OSC 52, `d` diagnostics with scrolling and copy, update-check failure, dialog Escape, page Escape, and a populated second open. Update apply was not run because it would modify the installed package. Light-theme rendering and a real Windows Terminal clipboard paste remain manual follow-ups from Phase 0.
+
+### Phase 10 — Custom context-menu launch options
+
+**Goal:** Let the dashboard add, edit, order and hide Explorer context-menu entries without editing settings files.
+
+Files:
+
+- `src/core/launch_options.hpp`, `src/core/launch_options.cpp`
+- `src/core/settings.hpp`, `src/core/settings.cpp`
+- `src/core/registry.hpp`, `src/core/registry.cpp`
+- `src/extension/command.cpp`
+- `src/cli/main.cpp`
+- `plugin/lib/types.ts`, `plugin/lib/format.ts`
+- `plugin/ui/rows.ts`, `plugin/ui/editors.ts`, `plugin/ui/launch.tsx`, `plugin/ui/dashboard.tsx`
+- plugin tests
+
+Tasks:
+
+1. Store one ordered `launchOptions` list containing the three built-ins and up to three custom entries. Built-ins keep canonical labels/flags but can be reordered and hidden.
+2. Validate custom labels and flags. Flags are entered exactly as they should follow `opencode`; the first flag must start with `-` or `--`.
+3. Add `ocshell settings launch list|add|update|hide|move|remove` and include the list in `settings list --json`.
+4. Enumerate the visible, ordered list in the packaged Windows 11 `IExplorerCommand` and write the same list to the Windows 10 registry verbs. Hide the parent when every entry is hidden.
+5. Add **Launch options** and **Add launch option** rows to Advanced, plus a manager for hide/show, edit, delete and move up/down.
+6. Refresh installed Windows 10 registry verbs after every launch-option write.
+
+Acceptance:
+
+- Custom flags reach `opencode` unchanged, with no manual `opencode` prefix in the UI.
+- Up to three custom entries; a fourth is rejected by both CLI and dashboard.
+- Built-in and custom entries share one order and can be hidden independently.
+- The packaged menu and registry verbs show only visible entries, in order.
+- Invalid labels/flags never write.
+
+**Phase 10 results (2026-10-31):** `launchOptions` is now part of settings as one ordered list of built-ins and up to three custom entries. `ocshell settings launch list|add|update|hide|move|remove` writes the list, validates labels/flags (first flag must start with `-`/`--`), enforces the three-custom limit, and refreshes installed Windows 10 registry verbs. The packaged `IExplorerCommand` enumerates the visible list live and hides the parent when every entry is hidden; the registry path writes the same ordered list and removes stale children. The dashboard Advanced section now has **Launch options** and **Add new launch option** rows plus a full-page manager for add/edit/delete, hide/show, and move up/down.
+
+Verification: plugin `bun run typecheck` and `bun test` pass (126 tests, 8 files, 488 assertions); the CLI `selftest` includes launch-option defaults, validation, add/hide/move round-trip, visible filtering and the custom limit. A real 80x24 ConPTY session added, hid, moved and removed a custom entry and the CLI output showed the persisted order/hidden state. A fake `opencode.exe` received the custom flags unchanged. A headless COM enumeration harness confirmed the packaged menu order, hidden filtering, custom tooltip and parent hiding. The Windows 10 registry path was installed, automatically refreshed after add/hide/move, inspected, and uninstalled. The MSIX package itself was not rebuilt or reinstalled; the packaged extension was exercised through the headless harness.
 
 ---
 

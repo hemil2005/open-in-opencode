@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
+import { defaultLaunchOptions } from "../lib/types"
 import { buildRows, type Row, type RowModel } from "../ui/rows"
 import {
   doctor,
@@ -41,6 +42,8 @@ describe("buildRows", () => {
       "updates",
       "diagnostics",
       "terminalMode",
+      "launchOptions",
+      "launchAdd",
     ])
   })
 
@@ -223,6 +226,8 @@ describe("buildRows", () => {
       "updateUri",
       "updates",
       "terminalMode",
+      "launchOptions",
+      "launchAdd",
     ]) {
       expect(byId(model, id).disabled).toBe(true)
       expect(byId(model, id).disabledReason).toBe("ocshell.exe was not found.")
@@ -244,6 +249,52 @@ describe("buildRows", () => {
     expect(byId(model, "continueFromProjectRoot").value).toBe("unavailable")
     expect(byId(model, "updateUri").value).toBe("unavailable")
     expect(model.rows.some((row) => row.id === "customPath")).toBe(false)
+  })
+
+  test("shows launch option summary and the add limit", () => {
+    const model = buildRows(makeSnapshot())
+    expect(byId(model, "launchOptions")).toMatchObject({
+      value: "3 shown, 0/3 custom",
+      action: "launchOptions",
+    })
+    expect(byId(model, "launchAdd")).toMatchObject({
+      value: "0/3 custom",
+      action: "launchAdd",
+    })
+
+    const custom = {
+      id: "custom-1",
+      label: "Fast model",
+      flags: "--model fast",
+      builtin: false,
+      hidden: false,
+    }
+    const one = buildRows(
+      makeSnapshot({
+        settings: settingsWith({
+          launchOptions: [...defaultLaunchOptions(), custom],
+        }),
+      }),
+    )
+    expect(byId(one, "launchOptions").value).toBe("4 shown, 1/3 custom")
+
+    const full = buildRows(
+      makeSnapshot({
+        settings: settingsWith({
+          launchOptions: [
+            ...defaultLaunchOptions(),
+            custom,
+            { ...custom, id: "custom-2", label: "Second" },
+            { ...custom, id: "custom-3", label: "Third" },
+          ],
+        }),
+      }),
+    )
+    expect(byId(full, "launchAdd")).toMatchObject({
+      value: "3/3 custom",
+      disabled: true,
+      disabledReason: "3 custom launch options already defined.",
+    })
   })
 
   test("keeps row ids stable across refreshes", () => {

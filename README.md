@@ -114,8 +114,14 @@ ocshell settings list
 ocshell settings terminals      # what was discovered, and where
 ocshell settings set terminal.id alacritty
 ocshell settings locate-binary  # file picker for opencode.exe
+ocshell settings launch list    # ordered context-menu launch options
+ocshell settings launch add "Fast model" "--model fast"
+ocshell settings launch hide custom-1 true
+ocshell settings launch move custom-1 up
 ocshell selftest
 ```
+
+Up to three custom launch options can be added. The flags are passed to `opencode` after the folder; the `opencode` prefix is automatic. Built-in and custom entries share one order and can be hidden or moved with `settings launch`. The installed Windows 10 registry verbs refresh after each change; the Windows 11 packaged menu reads the settings live.
 
 <details>
 <summary><strong>All settings</strong></summary>
@@ -141,6 +147,8 @@ Argument templates understand `{dir}`, `{command}`, `{commandline}` and `{pscomm
 An optional plugin opens a full-page dashboard with `/ocshell`. It shows package and certificate health, the `ocshell` and `opencode` paths, the current terminal, every setting, update state and diagnostics. Writes go through `ocshell.exe`, so the CLI remains the source of truth. OpenCode 2.2.5 or newer is required.
 
 Keys: up/down or `k`/`j` select, Enter change, `r` refresh, `c` copy the diagnostics report, `d` open diagnostics, Escape go back. The terminal picker searches detected terminals and disables ones without a launch template. Invalid paths and update URLs are rejected before anything is written. Copy uses OSC 52 first, then `clip.exe`, then a temporary file whose path is shown.
+
+The Advanced section also manages the Explorer context menu. **Add launch option** creates up to three custom entries; type flags exactly as they should follow `opencode` (include `-` or `--`, the `opencode` prefix is automatic). **Launch options** lets you hide entries you do not use and move built-in or custom entries up and down. Hidden entries stay configured but disappear from the menu. On Windows 11 the packaged menu reads these settings live; on Windows 10 the registry verbs are refreshed after each change.
 
 ```powershell
 .\scripts\install-plugin.ps1              # installs to %USERPROFILE%\.config\opencode\plugins\open-in-opencode

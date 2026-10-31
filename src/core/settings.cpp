@@ -33,6 +33,39 @@ json::Value StringArray(const std::vector<std::wstring>& values) {
   return array;
 }
 
+std::vector<LaunchOption> ReadLaunchOptions(const json::Value& object) {
+  std::vector<LaunchOption> out;
+  const json::Value* value = object.Find(L"launchOptions");
+  if (!value || !value->IsArray()) return out;
+
+  for (const auto& item : value->items()) {
+    if (!item.IsObject()) continue;
+    LaunchOption option;
+    option.id = ReadString(item, L"id", L"");
+    option.label = ReadString(item, L"label", L"");
+    option.flags = ReadString(item, L"flags", L"");
+    option.builtin = ReadBool(item, L"builtin", false);
+    option.hidden = ReadBool(item, L"hidden", false);
+    out.push_back(option);
+  }
+
+  return out;
+}
+
+json::Value LaunchOptionsToJson(const std::vector<LaunchOption>& options) {
+  json::Value array = json::Value::MakeArray();
+  for (const auto& option : options) {
+    json::Value item = json::Value::MakeObject();
+    item.Set(L"id", json::Value::MakeString(option.id));
+    item.Set(L"label", json::Value::MakeString(option.label));
+    item.Set(L"flags", json::Value::MakeString(option.flags));
+    item.Set(L"builtin", json::Value::MakeBool(option.builtin));
+    item.Set(L"hidden", json::Value::MakeBool(option.hidden));
+    array.Push(std::move(item));
+  }
+  return array;
+}
+
 }  // namespace
 
 Settings DefaultSettings() { return Settings(); }
@@ -51,6 +84,9 @@ json::Value SettingsToJson(const Settings& settings) {
   terminal.Set(L"customPath", json::Value::MakeString(settings.terminal.customPath));
   terminal.Set(L"customArgs", StringArray(settings.terminal.customArgs));
   root.Set(L"terminal", std::move(terminal));
+
+  root.Set(L"launchOptions",
+           LaunchOptionsToJson(NormalizeLaunchOptions(settings.launchOptions)));
   return root;
 }
 
@@ -66,6 +102,7 @@ Settings SettingsFromJson(const json::Value& value) {
   settings.continueFromProjectRoot =
       ReadBool(value, L"continueFromProjectRoot", settings.continueFromProjectRoot);
   settings.logging = ReadBool(value, L"logging", settings.logging);
+  settings.launchOptions = NormalizeLaunchOptions(ReadLaunchOptions(value));
 
   if (const json::Value* terminal = value.Find(L"terminal"); terminal && terminal->IsObject()) {
     settings.terminal.mode = ReadString(*terminal, L"mode", settings.terminal.mode);
@@ -149,6 +186,8 @@ std::wstring DescribeSettings(const Settings& settings) {
   }
   out += std::wstring(L"continueRoot  : ") + (settings.continueFromProjectRoot ? L"true" : L"false") + L"\n";
   out += std::wstring(L"logging       : ") + (settings.logging ? L"true" : L"false") + L"\n";
+  out += L"launchOptions :\n";
+  out += DescribeLaunchOptions(NormalizeLaunchOptions(settings.launchOptions));
   return out;
 }
 

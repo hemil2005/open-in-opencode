@@ -36,6 +36,7 @@ import {
 import type { Snapshot, SourceError, UpdateInfo } from "../lib/types"
 import { DiagnosticsDetail } from "./diagnostics"
 import {
+  addLaunchOption,
   editBinaryPath,
   editCustomArgs,
   editCustomPath,
@@ -45,6 +46,7 @@ import {
   toggleSetting,
   type EditorHooks,
 } from "./editors"
+import { LaunchManager } from "./launch"
 import { buildRows, type Row, type RowAction, type RowTone } from "./rows"
 import { applyUpdate } from "./updates"
 
@@ -60,6 +62,8 @@ const WRITE_ACTIONS: ReadonlySet<RowAction> = new Set([
   "terminalMode",
   "customPath",
   "customArgs",
+  "launchOptions",
+  "launchAdd",
 ])
 
 function looksLikePath(value: string): boolean {
@@ -89,6 +93,7 @@ export function Dashboard(props: { context: Context; onClose: () => void }) {
   const [progress, setProgress] = createSignal<string[]>([])
   const [dialogOpen, setDialogOpen] = createSignal(false)
   const [detailsOpen, setDetailsOpen] = createSignal(false)
+  const [launchOpen, setLaunchOpen] = createSignal(false)
   const [width, setWidth] = createSignal(context.renderer.width)
   const [updatedAt, setUpdatedAt] = createSignal<number | null>(null)
 
@@ -163,6 +168,10 @@ export function Dashboard(props: { context: Context; onClose: () => void }) {
       case "continueFromProjectRoot":
       case "logging":
         return "toggle"
+      case "launchOptions":
+        return "manage"
+      case "launchAdd":
+        return "add"
       case "updates":
         return currentSnapshot().update?.updateAvailable ? "install" : "check"
     }
@@ -208,6 +217,14 @@ export function Dashboard(props: { context: Context; onClose: () => void }) {
   function closeDetails(): void {
     setDetailsOpen(false)
     setDialogOpen(false)
+  }
+
+  function showLaunchOptions(): void {
+    setLaunchOpen(true)
+  }
+
+  function closeLaunchOptions(): void {
+    setLaunchOpen(false)
   }
 
   async function copy(text: string): Promise<CopyResult> {
@@ -564,12 +581,18 @@ export function Dashboard(props: { context: Context; onClose: () => void }) {
       case "customArgs":
         await editCustomArgs(hooks)
         return
+      case "launchOptions":
+        showLaunchOptions()
+        return
+      case "launchAdd":
+        await addLaunchOption(hooks)
+        return
     }
   }
 
   context.keymap.layer(() => ({
     mode: "base",
-    enabled: () => !dialogOpen() && !applying(),
+    enabled: () => !dialogOpen() && !applying() && !detailsOpen() && !launchOpen(),
     priority: 100,
     commands: [
       {
@@ -670,7 +693,7 @@ export function Dashboard(props: { context: Context; onClose: () => void }) {
   }
 
   const RowView = (rowProps: { row: Row; selected: boolean; disabled: boolean }) => {
-    const valueWidth = () => Math.max(8, width() - 4 - 2 - 18 - 1)
+    const valueWidth = () => Math.max(8, width() - 4 - 2 - 22 - 1)
     const displayValue = () => {
       if (busy() && rowProps.selected) return "..."
       const value = looksLikePath(rowProps.row.value)
@@ -697,7 +720,7 @@ export function Dashboard(props: { context: Context; onClose: () => void }) {
         </text>
         <text
           fg={rowProps.disabled ? theme().text.faint : theme().text.base}
-          width={18}
+          width={22}
           wrapMode="none"
         >
           {rowProps.row.label}
@@ -798,7 +821,17 @@ export function Dashboard(props: { context: Context; onClose: () => void }) {
         />
       </Show>
 
-      <Show when={!detailsOpen()}>
+      <Show when={launchOpen()}>
+        <LaunchManager
+          context={context}
+          options={() => currentSnapshot().settings?.launchOptions ?? []}
+          hooks={editorHooks()}
+          blocked={() => dialogOpen()}
+          close={closeLaunchOptions}
+        />
+      </Show>
+
+      <Show when={!detailsOpen() && !launchOpen()}>
         <box
           width="100%"
           height="100%"

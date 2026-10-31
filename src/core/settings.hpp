@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "core/json.hpp"
+#include "core/launch_options.hpp"
 
 namespace oc {
 
@@ -19,6 +20,7 @@ struct Settings {
   std::wstring binaryPath;  // empty means auto-discovery
   std::wstring updateUri;   // empty means use the URI baked in at build time
   TerminalChoice terminal;
+  std::vector<LaunchOption> launchOptions = DefaultLaunchOptions();
   bool continueFromProjectRoot = false;
   bool logging = false;
 };

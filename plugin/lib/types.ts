@@ -29,6 +29,14 @@ export type TerminalSettings = {
   customArgs: string[]
 }
 
+export type LaunchOption = {
+  id: string
+  label: string
+  flags: string
+  builtin: boolean
+  hidden: boolean
+}
+
 export type Settings = {
   version: number
   binaryPath: string
@@ -36,6 +44,7 @@ export type Settings = {
   continueFromProjectRoot: boolean
   logging: boolean
   terminal: TerminalSettings
+  launchOptions: LaunchOption[]
 }
 
 export type Terminal = {
@@ -165,6 +174,46 @@ export function decodeDoctor(value: unknown): Doctor {
   }
 }
 
+export function defaultLaunchOptions(): LaunchOption[] {
+  return [
+    { id: "new", label: "New session", flags: "", builtin: true, hidden: false },
+    {
+      id: "continue",
+      label: "Continue last session",
+      flags: "--continue",
+      builtin: true,
+      hidden: false,
+    },
+    {
+      id: "skip",
+      label: "Skip permission prompts",
+      flags: "--auto",
+      builtin: true,
+      hidden: false,
+    },
+  ]
+}
+
+function decodeLaunchOption(value: unknown, path: string): LaunchOption {
+  const root = asObject(value, path)
+  return {
+    id: asString(field(root, "id", path), `${path}.id`),
+    label: asString(field(root, "label", path), `${path}.label`),
+    flags: asString(field(root, "flags", path), `${path}.flags`),
+    builtin: asBoolean(field(root, "builtin", path), `${path}.builtin`),
+    hidden: asBoolean(field(root, "hidden", path), `${path}.hidden`),
+  }
+}
+
+export function decodeLaunchOptions(value: unknown): LaunchOption[] {
+  // Settings written by older CLI versions do not have this field.
+  if (value === undefined) return defaultLaunchOptions()
+  if (!Array.isArray(value)) throw new ShapeError("settings.launchOptions must be an array")
+  return value.map((item, index) =>
+    decodeLaunchOption(item, `settings.launchOptions[${index}]`),
+  )
+}
+
 export function decodeSettings(value: unknown): Settings {
   const root = asObject(value, "settings")
   const terminal = asObject(field(root, "terminal", "settings"), "settings.terminal")
@@ -189,6 +238,7 @@ export function decodeSettings(value: unknown): Settings {
         "settings.terminal.customArgs",
       ),
     },
+    launchOptions: decodeLaunchOptions(root.launchOptions),
   }
 }
 

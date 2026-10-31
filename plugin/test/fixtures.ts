@@ -1,3 +1,4 @@
+import { defaultLaunchOptions } from "../lib/types"
 import type { Doctor, Settings, Snapshot, Terminal, UpdateInfo } from "../lib/types"
 
 export const ocshellPath =
@@ -30,6 +31,7 @@ export const settings: Settings = {
     customPath: "",
     customArgs: [],
   },
+  launchOptions: defaultLaunchOptions(),
 }
 
 export const terminals: Terminal[] = [

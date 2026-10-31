@@ -12,6 +12,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this pr
   terminal choice, every setting, update state and diagnostics.
 - Searchable terminal picker, validated `opencode` and custom-terminal paths, update-source
   validation and a diagnostics report with OSC 52 / `clip.exe` / temp-file fallbacks.
+- Custom Explorer launch options: up to three custom entries with user-entered flags, plus
+  hide/show and reordering for both built-in and custom entries. Windows 11 reads the ordered
+  list live; Windows 10 registry verbs refresh after each change.
+- `ocshell settings launch list|add|update|hide|move|remove` for scripting the same menu.
 - Async `ocshell` runner with per-call timeouts, abort support, 1 MiB per-stream output caps
   and typed errors. The plugin no longer blocks the TUI with `spawnSync`.
 - Bun/TypeScript test tooling, plugin CI and an installer layout smoke check.
