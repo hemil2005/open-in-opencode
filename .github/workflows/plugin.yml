@@ -1,0 +1,36 @@
+name: plugin
+
+on:
+  push:
+    paths:
+      - "plugin/**"
+      - "scripts/install-plugin.ps1"
+      - ".github/workflows/plugin.yml"
+  pull_request:
+    paths:
+      - "plugin/**"
+      - "scripts/install-plugin.ps1"
+      - ".github/workflows/plugin.yml"
+
+jobs:
+  test:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: plugin
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Test
+        run: bun test
