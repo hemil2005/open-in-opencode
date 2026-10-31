@@ -1,6 +1,6 @@
 <div align="center">
 
-# Open in OpenCode
+<p><img src="docs/images/logo-wide.svg" alt="Open in OpenCode" width="560"></p>
 
 **Right-click any folder in Windows and start [OpenCode](https://opencode.ai) right there.**
 <br>The same gesture as *Open in Terminal*, for the opencode CLI.
