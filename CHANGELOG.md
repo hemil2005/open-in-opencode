@@ -6,6 +6,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this pr
 
 ## [Unreleased]
 
+## [0.7.0.1] - 2026-10-31
+
+### Changed
+
+- Release assets trimmed to six: the two raw architecture `.msix` files and `uninstall.ps1`
+  are no longer published. The bundle already contains both architectures, and uninstalling
+  goes through Settings > Apps.
+
 ## [0.7.0] - 2026-10-31
 
 ### Changed
