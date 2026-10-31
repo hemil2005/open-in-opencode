@@ -6,8 +6,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this pr
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-31
+
 ### Added
 
+- Built-in update source: `ocshell update check|apply` now defaults to the published
+  `.appinstaller`, so updates work without setting `updateUri` manually.
 - Full-page `/ocshell` dashboard in the optional opencode plugin: health, live paths,
   terminal choice, every setting, update state and diagnostics.
 - Searchable terminal picker, validated `opencode` and custom-terminal paths, update-source

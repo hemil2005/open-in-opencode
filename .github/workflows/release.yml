@@ -6,7 +6,7 @@ name: release
 #   SIGNING_PFX_BASE64   base64 of .secrets\OpenInOpenCode.pfx
 #   SIGNING_PFX_PASSWORD the PFX password
 #
-# Tag the release with the package version (v0.7.0.1) so the .appinstaller bundle URL
+# Tag the release with the package version (v0.8.0.0) so the .appinstaller bundle URL
 # matches what make-appinstaller.ps1 generates.
 
 on:
