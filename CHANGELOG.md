@@ -9,9 +9,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this pr
 ### Added
 
 - `.appinstaller` auto-update.
-- Inno Setup installer.
-- CI pipeline producing the bundle.
+- Windows 10 registry verbs.
 - License.
+
+## [0.4.0] - 2026-10-31
+
+### Added
+
+- **Inno Setup installer** (`installer/openshell.iss`, `scripts/build-installer.ps1`): one
+  signed EXE that trusts the certificate, installs the bundle, and uninstalls cleanly.
+  Idempotent — re-running does not duplicate the certificate or the package.
+- Install logic extracted to `installer/install-package.ps1` so it can also be run standalone.
+- **`ocshell` execution alias** in the manifest, so the installed CLI is on PATH.
+
+### Changed
+
+- Package version 0.4.0.0.
 
 ## [0.3.0] - 2026-10-31
 

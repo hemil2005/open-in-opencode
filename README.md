@@ -49,15 +49,28 @@ by the Windows 11 shell.
 
 ## Install
 
+### From the installer
+
+1. Download `OpenCodeShellSetup-<version>.exe` from the releases page.
+2. SmartScreen shows "unknown publisher" for a self-signed certificate — **More info → Run anyway**.
+3. Approve the UAC prompt. The installer trusts the signing certificate in
+   `LocalMachine\TrustedPeople` and installs the MSIX bundle.
+4. Right-click any folder, or empty space inside one.
+
+No Developer Mode is required. Uninstall from **Settings → Apps**, which removes the package
+and offers to remove the certificate too.
+
+### From source (development)
+
 ```powershell
 git clone <this repo> opencode-shell
 cd opencode-shell
 .\scripts\build.ps1
-.\scripts\install.ps1 -RestartExplorer
+.\scripts\install.ps1 -Replace -RestartExplorer
 ```
 
-`install.ps1` warns if Developer Mode is off, because registering an unsigned package requires
-it (`Settings → System → For developers`).
+A loose developer registration requires Developer Mode (it is unsigned) and cannot coexist
+with a packaged install — `-Replace` switches between them.
 
 To remove:
 
@@ -200,10 +213,14 @@ src\cli\main.cpp             ocshell.exe (launch, settings, doctor, selftest)
 src\noop.cpp                 placeholder exe required by the manifest
 src\resources\app.rc         icon resource
 packaging\identity.json      name, publisher, version (single source of truth)
-packaging\AppxManifest.xml   package + verb registration
+packaging\AppxManifest.template.xml   package + verb registration (rendered per arch)
 packaging\Assets\            package logos
-scripts\                     build / install / uninstall
+installer\openshell.iss      Inno Setup installer
+installer\install-package.ps1   cert trust + Add-AppxPackage (also standalone)
+scripts\                     build / package / sign / installer / install / uninstall
 tests\menu-smoke-test.ps1    end-to-end menu smoke test
+tests\com-activation.ps1     headless COM activation check (ARM64 CI)
+.github\workflows\           arm64 verification
 docs\design-notes.md         platform findings behind the design decisions
 docs\distribution.md         shipping options and signing requirements
 ```
