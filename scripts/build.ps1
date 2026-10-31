@@ -135,6 +135,7 @@ $core = @(
     'src\core\settings.cpp',
     'src\core\terminals.cpp',
     'src\core\binary.cpp',
+    'src\core\registry.cpp',
     'src\core\launch.cpp',
     'src\core\http.cpp',
     'src\core\update.cpp'

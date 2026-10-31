@@ -43,8 +43,27 @@ $signtool = Get-ChildItem (Join-Path $root '.tools\sdk') -Recurse -Filter 'signt
 if (-not $signtool) { throw 'signtool.exe not found. Run .\scripts\package.ps1 -InstallTools first.' }
 
 Write-Host "signing : $(Split-Path -Leaf $Path)"
-& $signtool.FullName sign /fd SHA256 /f $Pfx /p $Password /tr $TimestampUrl /td SHA256 $Path
-if ($LASTEXITCODE -ne 0) { throw 'signtool sign failed' }
+# The timestamp authority is the flakiest part of signing; retry and fall back before giving up.
+$timestampUrls = @($TimestampUrl, 'http://timestamp.sectigo.com', 'http://timestamp.digicert.com') |
+    Where-Object { $_ } | Select-Object -Unique
+
+$signed = $false
+foreach ($url in $timestampUrls) {
+    & $signtool.FullName sign /fd SHA256 /f $Pfx /p $Password /tr $url /td SHA256 $Path
+    if ($LASTEXITCODE -eq 0) {
+        $signed = $true
+        break
+    }
+    Write-Warning "timestamping via $url failed; retrying"
+    Start-Sleep -Seconds 2
+}
+
+if (-not $signed) {
+    Write-Warning 'all timestamp servers failed; signing without a timestamp'
+    Write-Warning 'the signature stays valid but stops verifying when the certificate expires'
+    & $signtool.FullName sign /fd SHA256 /f $Pfx /p $Password $Path
+    if ($LASTEXITCODE -ne 0) { throw 'signtool sign failed' }
+}
 
 Write-Host 'verifying ...'
 $output = & $signtool.FullName verify /pa /v $Path 2>&1

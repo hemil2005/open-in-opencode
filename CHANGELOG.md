@@ -8,8 +8,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this pr
 
 ### Added
 
-- Windows 10 registry verbs.
 - opencode plugin surface for settings.
+
+## [0.6.0] - 2026-10-31
+
+### Added
+
+- **Windows 10 support**: `ocshell registry install|uninstall|status` writes classic
+  context-menu verbs for folder, folder background, drive icon and desktop background.
+- Installer branches by OS — MSIX on Windows 11, `ocshell.exe` + registry verbs on Windows 10 —
+  and `ocshell.exe` now ships in the installer for that path.
+
+### Fixed
+
+- Signing retries across timestamp authorities and falls back to an untimestamped signature, so
+  a timestamp outage cannot fail a build.
 
 ## [0.5.0] - 2026-10-31
 

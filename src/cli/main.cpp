@@ -13,6 +13,7 @@
 #include "core/launch.hpp"
 #include "core/log.hpp"
 #include "core/paths.hpp"
+#include "core/registry.hpp"
 #include "core/settings.hpp"
 #include "core/terminals.hpp"
 #include "core/update.hpp"
@@ -559,6 +560,37 @@ int CommandUpdateApply() {
   return 0;
 }
 
+int CommandRegistry(const std::vector<std::wstring>& arguments) {
+  if (arguments.size() < 3) return Fail(L"usage: ocshell registry install|uninstall|status [--force]");
+
+  const std::wstring& action = arguments[2];
+
+  if (action == L"status") {
+    Line(oc::RegistryVerbsInstalled() ? L"registry verbs: installed" : L"registry verbs: not installed");
+    return 0;
+  }
+
+  if (action == L"install") {
+    if (oc::IsWindows11OrGreater() && !HasFlag(arguments, L"--force")) {
+      return Fail(L"registry verbs target Windows 10; Windows 11 uses the packaged menu.\n"
+                  L"Pass --force to add the classic entry as well (it shows under Show more options).");
+    }
+    std::wstring error;
+    if (!oc::InstallRegistryVerbs(&error)) return Fail(error);
+    Line(L"registry verbs installed");
+    return 0;
+  }
+
+  if (action == L"uninstall") {
+    std::wstring error;
+    if (!oc::UninstallRegistryVerbs(&error)) return Fail(error);
+    Line(L"registry verbs removed");
+    return 0;
+  }
+
+  return Fail(L"unknown registry action: " + action);
+}
+
 void Usage() {
   Line(L"OpenCodeShell " + std::wstring(OC_IDENTITY_VERSION));
   Line(L"");
@@ -570,6 +602,7 @@ void Usage() {
   Line(L"  ocshell doctor [--json]");
   Line(L"  ocshell update check [--json]");
   Line(L"  ocshell update apply");
+  Line(L"  ocshell registry install|uninstall|status [--force]");
   Line(L"  ocshell selftest");
   Line(L"  ocshell version");
   Line(L"");
@@ -588,6 +621,7 @@ int main() {
 
   const std::wstring& command = arguments[1];
   if (command == L"launch") return CommandLaunch(arguments);
+  if (command == L"registry") return CommandRegistry(arguments);
   if (command == L"doctor") return CommandDoctor(arguments);
   if (command == L"update") {
     if (arguments.size() < 3) {

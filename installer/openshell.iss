@@ -4,8 +4,12 @@
 ;   /DAppVersion=<version>   from packaging/identity.json
 ;   /DPublisherCN=<publisher>
 ;
-; The package itself installs into WindowsApps; this installer only exists to raise the
-; privilege needed to trust the signing certificate and to call Add-AppxPackage.
+; Two installation paths:
+;   Windows 11 (build 22000+): trust the signing certificate, install the MSIX bundle.
+;   Windows 10:                install ocshell.exe and register classic context-menu verbs.
+;
+; The package itself lives in WindowsApps; this installer only exists to raise the privilege
+; needed for certificate trust and package installation.
 
 #define AppName "Open in OpenCode"
 #define AppPublisher "OpenCodeShell"
@@ -37,36 +41,60 @@ SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayName={#AppName}
 UninstallDisplayIcon={sys}\shell32.dll,13
-MinVersion=10.0.22000
+MinVersion=10.0.17763
 
 [Files]
-; Staged to {tmp} and removed after the install step.
-Source: "..\out\OpenCodeShell.cer"; DestDir: "{tmp}"; Flags: deleteafterinstall
-Source: "..\out\OpenCodeShell.msixbundle"; DestDir: "{tmp}"
-Source: "install-package.ps1"; DestDir: "{tmp}"; Flags: deleteafterinstall
+; Windows 11: staged to {tmp} and removed after the install step.
+Source: "..\out\OpenCodeShell.cer"; DestDir: "{tmp}"; Flags: deleteafterinstall; Check: IsWindows11
+Source: "..\out\OpenCodeShell.msixbundle"; DestDir: "{tmp}"; Flags: deleteafterinstall; Check: IsWindows11
+Source: "install-package.ps1"; DestDir: "{tmp}"; Flags: deleteafterinstall; Check: IsWindows11
+
+; Windows 10: the CLI is the product, and it writes the registry verbs itself.
+Source: "..\out\ocshell.exe"; DestDir: "{app}"; Flags: ignoreversion; Check: IsWindows10
 
 [Code]
+function IsWindows11: Boolean;
+var
+  Version: TWindowsVersion;
+begin
+  GetWindowsVersionEx(Version);
+  Result := Version.Build >= 22000;
+end;
+
+function IsWindows10: Boolean;
+begin
+  Result := not IsWindows11;
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   Parameters: String;
   ResultCode: Integer;
+  Succeeded: Boolean;
 begin
   if CurStep <> ssPostInstall then
     Exit;
 
-  Parameters :=
-    '-NoProfile -ExecutionPolicy Bypass -File "' + ExpandConstant('{tmp}\install-package.ps1') + '"' +
-    ' -Certificate "' + ExpandConstant('{tmp}\OpenCodeShell.cer') + '"' +
-    ' -Bundle "' + ExpandConstant('{tmp}\OpenCodeShell.msixbundle') + '"' +
-    ' -Version "{#AppVersion}"';
-
-  if (not Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'), Parameters, '',
-               SW_HIDE, ewWaitUntilTerminated, ResultCode)) or (ResultCode <> 0) then
+  if IsWindows11 then
   begin
-    MsgBox('OpenCodeShell could not be installed.' + #13#10 + #13#10 +
-           'Run the installer again, or install the bundle manually with Add-AppxPackage.',
-           mbError, MB_OK);
+    Parameters :=
+      '-NoProfile -ExecutionPolicy Bypass -File "' + ExpandConstant('{tmp}\install-package.ps1') + '"' +
+      ' -Certificate "' + ExpandConstant('{tmp}\OpenCodeShell.cer') + '"' +
+      ' -Bundle "' + ExpandConstant('{tmp}\OpenCodeShell.msixbundle') + '"' +
+      ' -Version "{#AppVersion}"';
+    Succeeded := Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'), Parameters, '',
+                      SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0);
+  end
+  else
+  begin
+    Succeeded := Exec(ExpandConstant('{app}\ocshell.exe'), 'registry install', '', SW_HIDE,
+                      ewWaitUntilTerminated, ResultCode) and (ResultCode = 0);
   end;
+
+  if not Succeeded then
+    MsgBox('OpenCodeShell could not be installed.' + #13#10 + #13#10 +
+           'Run the installer again, or see the README for a manual installation.',
+           mbError, MB_OK);
 end;
 
 function InitializeUninstall(): Boolean;
@@ -76,12 +104,18 @@ var
 begin
   Result := True;
 
+  // Windows 10: remove the classic verbs before the executable is deleted.
+  if FileExists(ExpandConstant('{app}\ocshell.exe')) then
+    Exec(ExpandConstant('{app}\ocshell.exe'), 'registry uninstall', '', SW_HIDE,
+         ewWaitUntilTerminated, ResultCode);
+
+  // Windows 11: remove the package (a no-op when it was never installed).
   Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
        '-NoProfile -ExecutionPolicy Bypass -Command "Get-AppxPackage OpenCodeShell | Remove-AppxPackage"',
        '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 
-  // Silent uninstall has nobody to ask, and silently dropping machine-wide trust would be
-  // surprising, so keep the certificate by default.
+  // Silent uninstall keeps the certificate: nobody to ask, and dropping machine-wide trust
+  // without consent would be surprising.
   if UninstallSilent then
     Exit;
 

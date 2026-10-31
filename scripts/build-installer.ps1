@@ -41,6 +41,11 @@ Copy-Item $certificate (Join-Path $root 'out\OpenCodeShell.cer') -Force
 # Inno cannot rename a wildcard Source, so stage the bundle under a fixed name.
 Copy-Item $bundle (Join-Path $root 'out\OpenCodeShell.msixbundle') -Force
 
+# The CLI doubles as the Windows 10 payload (it writes the classic registry verbs).
+$cli = Join-Path $root 'stage\x64\ocshell.exe'
+if (-not (Test-Path $cli)) { throw "ocshell.exe not found: $cli. Run .\scripts\package.ps1 first." }
+Copy-Item $cli (Join-Path $root 'out\ocshell.exe') -Force
+
 function Find-Iscc {
     $local = Join-Path $root '.tools\inno\ISCC.exe'
     if (Test-Path $local) { return $local }

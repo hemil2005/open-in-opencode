@@ -120,6 +120,29 @@ certificates. With that in place the package sideloads on a default Windows 11/1
 A loose developer install and a packaged install of the same identity cannot coexist. Use
 `.\scripts\install.ps1 -Replace` to switch back to a loose build.
 
+## Windows 10
+
+The packaged entry is Windows 11 only. On Windows 10 (1809+) the installer places
+`ocshell.exe` in `Program Files` and registers **classic** context-menu verbs instead, which
+appear directly in the Windows 10 menu.
+
+```powershell
+ocshell registry install     # refuses on Windows 11 unless --force is given
+ocshell registry status
+ocshell registry uninstall
+```
+
+Classic verbs cover four targets — folder, folder background, **drive icon** and **desktop
+background**. The packaged menu can only register the first two, because the manifest schema
+rejects `Drive` and `DesktopBackground`.
+
+On Windows 11 these verbs would duplicate the packaged entry, so the installer only writes them
+when the build number is below 22000. `--force` exists for testing: the entry then appears under
+*Show more options*.
+
+> Windows 10 support has **not** been run on a Windows 10 machine. The registry logic is
+> verified on Windows 11's classic menu, which uses the same shell mechanism.
+
 ## Configuration
 
 Settings live in `%APPDATA%\OpenCodeShell\settings.json`, managed through `ocshell.exe`.
@@ -238,7 +261,7 @@ folder moved. Re-run `.\scripts\install.ps1`.
 ## Project layout
 
 ```
-src\core\                    settings, terminals, binary resolution, launch, log, json, http, update
+src\core\                    settings, terminals, binary resolution, launch, log, json, http, update, registry
 src\extension\command.cpp    IExplorerCommand (Windows 11 packaged verb)
 src\cli\main.cpp             ocshell.exe (launch, settings, doctor, update, selftest)
 src\noop.cpp                 placeholder exe required by the manifest
