@@ -1,6 +1,7 @@
 # build output
 dist/
 .build/
+src/generated/
 *.res
 *.obj
 

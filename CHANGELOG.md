@@ -9,9 +9,32 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this pr
 ### Added
 
 - ARM64 build output for an MSIX bundle.
-- Log rotation.
 - CI pipeline producing the bundle.
 - License.
+
+## [0.2.0] - 2026-10-31
+
+### Added
+
+- Shared `src/core` layer: settings, terminal discovery, binary resolution, launch, logging,
+  JSON reader/writer. Both entry points use it.
+- `ocshell.exe` with `launch`, `settings list|set|terminals|locate-binary`, `doctor`,
+  `selftest` and `version`.
+- Terminal discovery across `App Paths`, `PATH` and common install roots, with argument
+  templates per terminal and a custom-command escape hatch.
+- `continueFromProjectRoot` setting; the `--continue` fallback policy moved into core so both
+  the packaged verb and the future registry verbs behave identically.
+- Log rotation at 1 MB.
+- `packaging/identity.json` as the single source of truth; `src/generated/identity.h` is
+  produced by the build.
+
+### Changed
+
+- Package identity renamed from `OpenCodeShellPhase0` to `OpenCodeShell`; version now 0.2.0.0.
+- Log moved to `%LOCALAPPDATA%\OpenCodeShell\shell.log`; `GetTitle` tracing is debug-only.
+- Removed the `cmd.exe /k opencode` fallback. A missing binary now produces a clear dialog and
+  can be pinned with `settings locate-binary`.
+- Multi-select hides the entry instead of acting on the first folder.
 
 ## [0.1.0] - 2026-10-31
 

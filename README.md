@@ -29,7 +29,9 @@ plan.
     when the folder has no history (avoids opencode's `--continue` placeholder-id error)
   - **Skip permission prompts** — `opencode --auto "<dir>"`
 - Finds the opencode binary across npm, curl, scoop, chocolatey and `PATH` installs; override
-  with `OPENCODE_SHELL_BINARY`.
+  with `OPENCODE_SHELL_BINARY` or the `binaryPath` setting.
+- Discovers installed terminals (Windows Terminal, Alacritty, WezTerm, kitty, Ghostty, ConEmu,
+  mintty, …) and lets you pick one; falls back to the Windows default console.
 - Runs out-of-process in a COM surrogate, so a fault cannot take down Explorer.
 
 ## Requirements
@@ -70,8 +72,39 @@ To remove:
 .\scripts\build.ps1 -Compiler 'C:\msys64\mingw64\bin\x86_64-w64-mingw32-g++.exe'
 ```
 
-`dist\` is a complete loose-package layout (`AppxManifest.xml`, DLL, placeholder exe, assets)
-ready for `Add-AppxPackage -Register`. It is git-ignored.
+`dist\` is a complete loose-package layout (`AppxManifest.xml`, `OpenCodeShell.dll`,
+`ocshell.exe`, placeholder exe, assets) ready for `Add-AppxPackage -Register`. It is
+git-ignored.
+
+## Configuration
+
+Settings live in `%APPDATA%\OpenCodeShell\settings.json`, managed through `ocshell.exe`.
+
+```powershell
+.\dist\ocshell.exe doctor                  # package / certificate / binary / terminal
+.\dist\ocshell.exe settings list
+.\dist\ocshell.exe settings terminals      # what was discovered, and where
+.\dist\ocshell.exe settings set terminal.id alacritty
+.\dist\ocshell.exe settings set terminal.mode default
+.\dist\ocshell.exe settings locate-binary  # file picker for opencode.exe
+.\dist\ocshell.exe selftest
+```
+
+| Key | Values |
+|---|---|
+| `binaryPath` | full path to `opencode.exe`; empty means auto-discovery |
+| `terminal.mode` | `auto`, `default` (no terminal wrapper) or `custom` |
+| `terminal.id` | a terminal id from `settings terminals` (used in `auto` mode) |
+| `terminal.customPath` | executable for `custom` mode |
+| `terminal.customArgs` | argument template, e.g. `--working-directory {dir} -e {command}` |
+| `continueFromProjectRoot` | `true`/`false` — fall back to the project root session |
+| `logging` | `true`/`false` — verbose log lines |
+
+Terminal discovery probes `App Paths`, `PATH`, and the usual install roots (Program Files,
+scoop, chocolatey, MSYS2, Cygwin, Git for Windows). A terminal found without a known command
+template is listed with `*` and can still be used through `terminal.mode=custom`.
+
+Argument templates understand `{dir}`, `{command}`, `{commandline}` and `{pscommand}`.
 
 ## Test
 
@@ -130,9 +163,12 @@ folder moved. Re-run `.\scripts\install.ps1`.
 ## Project layout
 
 ```
-src\command.cpp              IExplorerCommand implementation
+src\core\                    settings, terminal discovery, binary resolution, launch, log, json
+src\extension\command.cpp    IExplorerCommand (Windows 11 packaged verb)
+src\cli\main.cpp             ocshell.exe (launch, settings, doctor, selftest)
 src\noop.cpp                 placeholder exe required by the manifest
 src\resources\app.rc         icon resource
+packaging\identity.json      name, publisher, version (single source of truth)
 packaging\AppxManifest.xml   package + verb registration
 packaging\Assets\            package logos
 scripts\                     build / install / uninstall
