@@ -93,7 +93,7 @@ ocshell settings set updateUri <url>     # override the built-in source
 
 `OnLaunch` update prompts only fire when the app is launched. This package has no launchable surface, so `AutomaticBackgroundTask` is the dependable path.
 
-The release workflow (`.github/workflows/release.yml`) builds and signs both architectures and publishes the bundle, the installer, the `.appinstaller`, the `.cer`, `install.ps1` and `uninstall.ps1`. Push a tag matching the package version (for example `v0.7.0.0`).
+The release workflow (`.github/workflows/release.yml`) builds and signs both architectures and publishes six fixed-name assets: the bundle, the versioned and fixed-name setup executables, the `.appinstaller`, the `.cer` and `install.ps1`. Push a tag matching the package version (for example `v0.7.0.0`).
 
 Set `SIGNING_PFX_BASE64` and `SIGNING_PFX_PASSWORD` as repository secrets for a stable signer. Without them, the workflow generates a fresh self-signed certificate per release and publishes its `.cer`, which `install.ps1` trusts. That keeps tagged releases working, but it accumulates a certificate per release, so set the secrets before regular releases.
 
@@ -104,7 +104,9 @@ The one-liner sources are published as fixed-name release assets:
 | Source | Release asset | Purpose |
 |---|---|---|
 | `scripts/install-oneliner.ps1` | `install.ps1` | Checks the Windows build and installs the supported path |
-| `scripts/uninstall-oneliner.ps1` | `uninstall.ps1` | Removes the packaged and setup installs |
+
+Uninstall from **Settings > Apps**. `scripts/uninstall-oneliner.ps1` stays in the repository for
+scripted removal, but it is not a release asset.
 
 The one-liner self-elevates once. On Windows 11 it trusts the certificate and runs
 `Add-AppxPackage -AppInstallerFile`; if that fails it downloads the bundle directly. On

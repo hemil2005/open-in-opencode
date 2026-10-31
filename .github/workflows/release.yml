@@ -83,18 +83,15 @@ jobs:
           $identity = Get-Content packaging/identity.json -Raw | ConvertFrom-Json
           Copy-Item "out/OpenInOpenCodeSetup-$($identity.version).exe" out/OpenInOpenCodeSetup.exe
           Copy-Item scripts/install-oneliner.ps1 out/install.ps1
-          Copy-Item scripts/uninstall-oneliner.ps1 out/uninstall.ps1
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             out/OpenInOpenCode_*.msixbundle
-            out/OpenInOpenCode_*.msix
             out/OpenInOpenCode.appinstaller
             out/OpenInOpenCode.cer
             out/OpenInOpenCodeSetup-*.exe
             out/OpenInOpenCodeSetup.exe
             out/install.ps1
-            out/uninstall.ps1
           fail_on_unmatched_files: true

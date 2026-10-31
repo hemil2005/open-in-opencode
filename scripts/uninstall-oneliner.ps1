@@ -4,12 +4,13 @@
     Removes Open in OpenCode.
 
 .DESCRIPTION
-    Run without arguments:
+    Run from a checkout:
 
-        irm https://github.com/hemil2005/open-in-opencode/releases/latest/download/uninstall.ps1 | iex
+        .\scripts\uninstall-oneliner.ps1
 
     Removes the packaged install and, when present, the setup-installed copy. The signing
     certificate is kept unless -RemoveCertificate is given, matching the setup uninstaller.
+    This is a repository script, not a release asset; Settings > Apps is the normal path.
 
 .PARAMETER RemoveCertificate
     Also remove the self-signed signing certificate from LocalMachine\TrustedPeople.
@@ -38,7 +39,11 @@ if (-not (Test-Admin) -and -not $NoElevate -and -not $env:OPENCODE_INSTALL_ELEVA
     Write-Host 'Requesting elevation...'
     $env:OPENCODE_INSTALL_ELEVATED = '1'
     if ($RemoveCertificate) { $env:OPENCODE_REMOVE_CERT = '1' }
-    $command = "`$env:OPENCODE_REMOVE_CERT='$($env:OPENCODE_REMOVE_CERT)'; irm 'https://github.com/hemil2005/open-in-opencode/releases/latest/download/uninstall.ps1' | iex"
+    $command = if ($PSCommandPath) {
+        "& '$PSCommandPath' -NoElevate" + $(if ($RemoveCertificate) { ' -RemoveCertificate' } else { '' })
+    } else {
+        "`$env:OPENCODE_REMOVE_CERT='$($env:OPENCODE_REMOVE_CERT)'; irm 'https://github.com/hemil2005/open-in-opencode/releases/latest/download/uninstall.ps1' | iex"
+    }
     $elevated = Start-Process powershell -Verb RunAs -Wait -PassThru `
         -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $command)
     exit $elevated.ExitCode
