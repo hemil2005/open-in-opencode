@@ -12,16 +12,25 @@
         .secrets\OpenInOpenCode.cer   public key, shipped by the installer
         .secrets\password.txt        PFX password, for local use only
 
-    This is a development certificate. Step up to Azure Artifact Signing or the Microsoft
-    Store before distributing publicly; see docs/distribution.md.
+    This is a development certificate. Direct downloads stay self-signed; the Microsoft Store
+    re-signs Store packages on submission.
 
 .PARAMETER Password
     PFX password. Generated and stored in .secrets\password.txt when omitted.
+
+.PARAMETER Subject
+    Certificate subject. Defaults to the sideload publisher in packaging/identity.json. Use the
+    Store publisher for the local Store test certificate.
+
+.PARAMETER OutputName
+    Base file name for the PFX/CER. Defaults to OpenInOpenCode.
 #>
 [CmdletBinding()]
 param(
     [string]$Password,
     [string]$OutDir = '.secrets',
+    [string]$Subject,
+    [string]$OutputName = 'OpenInOpenCode',
     [switch]$Force
 )
 
@@ -31,10 +40,10 @@ $root = Split-Path -Parent $PSScriptRoot
 if (-not [System.IO.Path]::IsPathRooted($OutDir)) { $OutDir = Join-Path $root $OutDir }
 
 $identity = Get-Content (Join-Path $root 'packaging\identity.json') -Raw | ConvertFrom-Json
-$publisher = $identity.publisher
+$publisher = if ($Subject) { $Subject } else { $identity.publisher }
 
-$pfx = Join-Path $OutDir 'OpenInOpenCode.pfx'
-$cer = Join-Path $OutDir 'OpenInOpenCode.cer'
+$pfx = Join-Path $OutDir "$OutputName.pfx"
+$cer = Join-Path $OutDir "$OutputName.cer"
 $passwordFile = Join-Path $OutDir 'password.txt'
 
 if ((Test-Path $pfx) -and -not $Force) {
@@ -63,7 +72,7 @@ $certificate = New-SelfSignedCertificate `
     -Type Custom `
     -Subject $publisher `
     -KeyUsage DigitalSignature `
-    -FriendlyName 'OpenInOpenCode signing' `
+    -FriendlyName "$OutputName signing" `
     -CertStoreLocation 'Cert:\CurrentUser\My' `
     -TextExtension @('2.5.29.37={text}1.3.6.1.5.5.7.3.3', '2.5.29.19={text}') `
     -NotAfter (Get-Date).AddYears(3)

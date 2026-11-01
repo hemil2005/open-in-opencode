@@ -361,6 +361,9 @@ std::wstring PackageState() {
 }
 
 std::wstring CertificateState() {
+#ifdef OC_STORE_BUILD
+  return L"Store-signed";
+#endif
   std::wstring publisher = OC_IDENTITY_PUBLISHER;
   std::wstring cn = publisher;
   if (cn.rfind(L"CN=", 0) == 0) cn = cn.substr(3);
@@ -469,6 +472,16 @@ int CommandSelfTest() {
                                       restored.logging);
   }
 
+  // Terminal default: auto with no selected terminal must use the Windows default.
+  {
+    oc::Settings defaults;
+    check(L"terminal default is the Windows default",
+          defaults.terminal.mode == L"auto" && defaults.terminal.id.empty());
+    oc::Settings restored = oc::SettingsFromJson(oc::SettingsToJson(defaults));
+    check(L"terminal default round trip",
+          restored.terminal.mode == L"auto" && restored.terminal.id.empty());
+  }
+
   // Launch options
   {
     oc::Settings settings;
@@ -478,7 +491,15 @@ int CommandSelfTest() {
     check(L"launch options default", settings.launchOptions.size() == 3);
     check(L"launch flags validation",
           oc::ValidateLaunchFlags(L"--continue", nullptr) &&
-              !oc::ValidateLaunchFlags(L"continue", nullptr));
+              oc::ValidateLaunchFlags(L"-h", nullptr) &&
+              oc::ValidateLaunchFlags(L"--model fast", nullptr) &&
+              oc::ValidateLaunchFlags(L"mini", nullptr) &&
+              oc::ValidateLaunchFlags(L"continue", nullptr) &&
+              oc::ValidateLaunchFlags(L"-", nullptr) &&
+              oc::ValidateLaunchFlags(L"--", nullptr) &&
+              !oc::ValidateLaunchFlags(L"", nullptr) &&
+              !oc::ValidateLaunchFlags(L"--flag \"unterminated", nullptr) &&
+              !oc::ValidateLaunchFlags(L"--flag\nvalue", nullptr));
     check(L"add launch option",
           oc::AddLaunchOption(&settings, L"Fast model", L"--model fast", &id, &error) &&
               id == L"custom-1");
@@ -585,6 +606,10 @@ std::wstring ResolveUpdateUri(const oc::Settings& settings) {
 }
 
 int CommandUpdateCheck(const std::vector<std::wstring>& arguments) {
+#ifdef OC_STORE_BUILD
+  Line(L"updates are managed by the Microsoft Store");
+  return 0;
+#endif
   oc::Settings settings;
   std::wstring warning;
   oc::LoadSettings(&settings, &warning);
@@ -619,6 +644,10 @@ int CommandUpdateCheck(const std::vector<std::wstring>& arguments) {
 }
 
 int CommandUpdateApply() {
+#ifdef OC_STORE_BUILD
+  Line(L"updates are managed by the Microsoft Store");
+  return 0;
+#endif
   oc::Settings settings;
   std::wstring warning;
   oc::LoadSettings(&settings, &warning);

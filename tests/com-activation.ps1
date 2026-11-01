@@ -13,12 +13,13 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$ExpectedTitle = 'Open in OpenCode'
+    [string]$ExpectedTitle = 'Open in OpenCode',
+    [string]$PackageName = 'OpenInOpenCode'
 )
 
 $ErrorActionPreference = 'Stop'
 
-if (-not (Get-AppxPackage OpenInOpenCode -ErrorAction SilentlyContinue)) {
+if (-not (Get-AppxPackage $PackageName -ErrorAction SilentlyContinue)) {
     throw 'Open in OpenCode is not registered for this user.'
 }
 

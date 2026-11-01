@@ -33,7 +33,11 @@ param(
     [string]$Architecture = 'x64',
     [string]$OutDir = 'dist',
     [string]$Compiler,
-    [switch]$Clean
+    [ValidateSet('release', 'debug')]
+    [string]$Configuration = 'release',
+    [string]$IdentityPath,
+    [switch]$Clean,
+    [switch]$Store
 )
 
 $ErrorActionPreference = 'Stop'
@@ -94,7 +98,11 @@ Write-Host "arch     : $Architecture"
 Write-Host "compiler : $gxx"
 
 # --- identity header ----------------------------------------------------------------
-$identity = Get-Content (Join-Path $root 'packaging\identity.json') -Raw | ConvertFrom-Json
+if (-not $IdentityPath) {
+    $IdentityPath = if ($Store) { Join-Path $root 'packaging\identity.store.json' } else { Join-Path $root 'packaging\identity.json' }
+}
+if (-not (Test-Path $IdentityPath)) { throw "identity file not found: $IdentityPath" }
+$identity = Get-Content $IdentityPath -Raw | ConvertFrom-Json
 $header = @(
     '#pragma once',
     '',
@@ -114,7 +122,8 @@ $manifest = $template.
     Replace('{{PUBLISHER}}', $identity.publisher).
     Replace('{{VERSION}}', $identity.version).
     Replace('{{ARCH}}', $Architecture).
-    Replace('{{DISPLAY}}', $identity.displayName)
+    Replace('{{DISPLAY}}', $identity.displayName).
+    Replace('{{PUBLISHER_DISPLAY}}', $identity.publisherDisplayName)
 [System.IO.File]::WriteAllText((Join-Path $OutDir 'AppxManifest.xml'), $manifest, (New-Object System.Text.UTF8Encoding($false)))
 Write-Host "identity : $($identity.name) $($identity.version) $Architecture"
 
@@ -124,6 +133,51 @@ Push-Location (Join-Path $root 'src\resources')
 try {
     & $windres -i 'app.rc' -O coff -o $resource
     if ($LASTEXITCODE -ne 0) { throw 'windres failed' }
+} finally {
+    Pop-Location
+}
+
+# --- version resource -----------------------------------------------------------------
+$parts = @($identity.version -split '\.')
+while ($parts.Count -lt 4) { $parts += '0' }
+$versionTuple = ($parts[0..3] | ForEach-Object { [int]$_ }) -join ','
+$versionRc = @"
+#include <winver.h>
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION $versionTuple
+ PRODUCTVERSION $versionTuple
+ FILEFLAGSMASK 0x3fL
+ FILEFLAGS 0x0L
+ FILEOS VOS_NT_WINDOWS32
+ FILETYPE VFT_APP
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName", "Hemil Shah"
+            VALUE "FileDescription", "Open in OpenCode"
+            VALUE "FileVersion", "$($identity.version)"
+            VALUE "InternalName", "OpenInOpenCode"
+            VALUE "OriginalFilename", "ocshell.exe"
+            VALUE "ProductName", "Open in OpenCode"
+            VALUE "ProductVersion", "$($identity.version)"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END
+"@
+[System.IO.File]::WriteAllText((Join-Path $generated 'version.rc'), $versionRc, (New-Object System.Text.UTF8Encoding($false)))
+$versionResource = Join-Path $build 'version.res'
+Push-Location $generated
+try {
+    & $windres -i 'version.rc' -O coff -o $versionResource
+    if ($LASTEXITCODE -ne 0) { throw 'windres (version) failed' }
 } finally {
     Pop-Location
 }
@@ -142,24 +196,30 @@ $core = @(
     'src\core\update.cpp'
 ) | ForEach-Object { Join-Path $root $_ }
 
-$common = @(
-    '-std=c++17', '-O2', '-DUNICODE', '-D_UNICODE',
+$optimize = if ($Configuration -eq 'debug') {
+    @('-O0', '-g')
+} else {
+    @('-O2', '-DNDEBUG', '-s')
+}
+$common = @('-std=c++17') + $optimize + @(
+    '-DUNICODE', '-D_UNICODE',
     # Static C++ runtime is mandatory: the COM surrogate (dllhost) only resolves DLLs from the
     # package folder and System32.
     '-static', '-static-libgcc', '-static-libstdc++',
     "-I$(Join-Path $root 'src')"
 )
+if ($Store) { $common += '-DOC_STORE_BUILD' }
 
 $libs = @('-lole32', '-lshlwapi', '-luuid', '-lshell32', '-luser32', '-ladvapi32', '-lcrypt32', '-lwinhttp')
 
 Write-Host 'dll      : OpenInOpenCode.dll'
 & $gxx @common -shared -o (Join-Path $OutDir 'OpenInOpenCode.dll') `
-    $core (Join-Path $root 'src\extension\command.cpp') $resource @libs
+    $core (Join-Path $root 'src\extension\command.cpp') $resource $versionResource @libs
 if ($LASTEXITCODE -ne 0) { throw 'extension build failed' }
 
 Write-Host 'cli      : ocshell.exe'
 & $gxx @common -mconsole -o (Join-Path $OutDir 'ocshell.exe') `
-    $core (Join-Path $root 'src\cli\main.cpp') @libs
+    $core (Join-Path $root 'src\cli\main.cpp') $versionResource @libs
 if ($LASTEXITCODE -ne 0) { throw 'cli build failed' }
 
 Write-Host 'exe      : noop.exe'
@@ -167,6 +227,13 @@ Write-Host 'exe      : noop.exe'
 if ($LASTEXITCODE -ne 0) { throw 'placeholder build failed' }
 
 Copy-Item (Join-Path $root 'packaging\Assets') $OutDir -Recurse -Force
+if ($Store) {
+    $storeLogo = Join-Path $root 'packaging\AssetsStore\StoreLogo.png'
+    if (Test-Path $storeLogo) {
+        Copy-Item $storeLogo (Join-Path $OutDir 'Assets\StoreLogo.png') -Force
+        Write-Host 'store    : StoreLogo.png from packaging\AssetsStore'
+    }
+}
 
 Write-Host ''
 Get-ChildItem $OutDir -Recurse -File |

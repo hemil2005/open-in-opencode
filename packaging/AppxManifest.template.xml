@@ -22,7 +22,7 @@
 
   <Properties>
     <DisplayName>{{DISPLAY}}</DisplayName>
-    <PublisherDisplayName>Open in OpenCode</PublisherDisplayName>
+    <PublisherDisplayName>{{PUBLISHER_DISPLAY}}</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 

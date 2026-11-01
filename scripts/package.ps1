@@ -16,6 +16,7 @@
 [CmdletBinding()]
 param(
     [switch]$Sign,
+    [switch]$Store,
     [switch]$InstallTools,
     [string]$Pfx,
     [string]$PfxPassword
@@ -24,12 +25,14 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
-$identity = Get-Content (Join-Path $root 'packaging\identity.json') -Raw | ConvertFrom-Json
+$identityPath = if ($Store) { Join-Path $root 'packaging\identity.store.json' } else { Join-Path $root 'packaging\identity.json' }
+if (-not (Test-Path $identityPath)) { throw "identity not found: $identityPath" }
+$identity = Get-Content $identityPath -Raw | ConvertFrom-Json
 $version = $identity.version
 
 $toolsRoot = Join-Path $root '.tools'
 $sdkRoot = Join-Path $toolsRoot 'sdk'
-$outDir = Join-Path $root 'out'
+$outDir = if ($Store) { Join-Path $root 'out\store' } else { Join-Path $root 'out' }
 $bundleInput = Join-Path $root '.build\bundle'
 
 function Find-SdkTool {
@@ -67,7 +70,14 @@ Write-Host "version  : $version"
 foreach ($arch in @('x64', 'arm64')) {
     Write-Host ''
     Write-Host "== building $arch =="
-    & (Join-Path $PSScriptRoot 'build.ps1') -Architecture $arch -OutDir (Join-Path $root "stage\$arch") -Clean
+    $buildArgs = @{
+        Architecture  = $arch
+        OutDir        = Join-Path $root "stage\$arch"
+        Configuration = 'release'
+        Clean         = $true
+    }
+    if ($Store) { $buildArgs.Store = $true }
+    & (Join-Path $PSScriptRoot 'build.ps1') @buildArgs
     if ($LASTEXITCODE -ne 0) { throw "build failed for $arch" }
 }
 
@@ -91,7 +101,19 @@ Write-Host "bundling : $(Split-Path -Leaf $bundle)"
 & $makeappx bundle /d $bundleInput /p $bundle /bv $version /o
 if ($LASTEXITCODE -ne 0) { throw 'makeappx bundle failed' }
 
-if ($Sign) {
+if ($Store) {
+    $storePfx = Join-Path $root '.secrets\StoreTest.pfx'
+    if (Test-Path $storePfx) {
+        Write-Host ''
+        & (Join-Path $PSScriptRoot 'sign.ps1') -Path $bundle -Pfx $storePfx
+        if ($LASTEXITCODE -ne 0) { throw 'Store test signing failed' }
+        Write-Host 'Store package signed with the local test certificate; the Store re-signs on submission.'
+    } else {
+        Write-Host ''
+        Write-Host 'Store package left unsigned (no .secrets\StoreTest.pfx); the Store signs on submission.'
+    }
+}
+elseif ($Sign) {
     Write-Host ''
     & (Join-Path $PSScriptRoot 'sign.ps1') -Path $bundle -Pfx $Pfx -Password $PfxPassword
     if ($LASTEXITCODE -ne 0) { throw 'signing failed' }

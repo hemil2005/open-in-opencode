@@ -22,12 +22,13 @@
 [CmdletBinding()]
 param(
     [string]$MenuEntry = 'Open in OpenCode',
-    [int]$Attempts = 3
+    [int]$Attempts = 3,
+    [string]$PackageName = 'OpenInOpenCode'
 )
 
 $ErrorActionPreference = 'Stop'
 
-if (-not (Get-AppxPackage OpenInOpenCode -ErrorAction SilentlyContinue)) {
+if (-not (Get-AppxPackage $PackageName -ErrorAction SilentlyContinue)) {
     throw 'Open in OpenCode is not registered. Run .\scripts\install.ps1 first.'
 }
 
