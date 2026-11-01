@@ -26,6 +26,11 @@ Opening a folder in OpenCode normally means opening a terminal, `cd`-ing to the 
 
 ## Install
 
+### Microsoft Store
+
+The Store build is signed by Microsoft, so Store installs have no "unknown publisher" warning
+and no certificate step. The Store link will be added once the submission is live.
+
 ### One command
 
 ```powershell
@@ -213,7 +218,9 @@ ocshell registry uninstall
 
 ## Development
 
-Build instructions, packaging and signing, tests, release workflow, and how the extension works are in [**docs/development.md**](docs/development.md). Design findings are in [docs/design-notes.md](docs/design-notes.md) and distribution options in [docs/distribution.md](docs/distribution.md).
+Build instructions, packaging and signing, tests, release workflow, and how the extension works are in [**docs/development.md**](docs/development.md). The Store build (`package.ps1 -Store`), the identity files and the pinned toolchains are documented there. `scripts/install.ps1` and `scripts/new-cert.ps1` are development-only.
+
+Design findings are in [docs/design-notes.md](docs/design-notes.md) and distribution options in [docs/distribution.md](docs/distribution.md).
 
 Issues and pull requests are welcome.
 
@@ -222,9 +229,14 @@ Issues and pull requests are welcome.
 - **Trademarks.** OpenCode and its mark belong to their respective owners. This project uses the mark only to identify the tool it integrates with. It is not affiliated with or endorsed by the OpenCode team.
 - **Internal names.** The display name is **Open in OpenCode**; the package identity is **OpenInOpenCode** and the CLI is **ocshell.exe**.
 
+## Privacy
+
+No telemetry, no analytics, no data collection. See [PRIVACY.md](PRIVACY.md) for the full policy.
+
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE). Third-party build tools are listed in
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
 ## Credits
 

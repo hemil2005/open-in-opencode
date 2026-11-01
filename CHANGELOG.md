@@ -6,6 +6,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this pr
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-01
+
+### Added
+
+- Microsoft Store build: reserved Store identity (`Hemil.OpeninOpenCode`), a Store-only
+  `StoreLogo`, and Store-managed updates. The Store package is built separately and uploaded
+  as a CI artifact.
+
+### Changed
+
+- Release builds use `-O2 -DNDEBUG -s` and carry `VERSIONINFO` metadata.
+- CI pins llvm-mingw `20261020` and SDK BuildTools `10.0.28000.2957`.
+- The `updates` prerelease is pruned to the current bundle.
+- The launch detail log line is debug-only.
+- `selftest` covers the new argument contract and the Windows-default terminal.
+
+### Fixed
+
+- The 0.8.0.3 selftest regression.
+
 ## [0.8.0.3] - 2026-11-01
 
 ### Fixed

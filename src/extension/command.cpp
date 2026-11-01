@@ -185,7 +185,7 @@ class Command final : public IExplorerCommand {
       Report(error);
       return S_OK;
     }
-    oc::Log(oc::LogLevel::Info, L"launch " + detail);
+    oc::Log(oc::LogLevel::Debug, L"launch " + detail);
     return S_OK;
   }
 

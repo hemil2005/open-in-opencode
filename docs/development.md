@@ -32,9 +32,12 @@ To remove it:
 ```powershell
 .\scripts\build.ps1                              # x64 -> dist\
 .\scripts\build.ps1 -Architecture arm64 -OutDir stage\arm64
+.\scripts\build.ps1 -Configuration debug         # -O0 -g for local debugging
 .\scripts\build.ps1 -Clean
 .\scripts\build.ps1 -Compiler 'C:\msys64\mingw64\bin\x86_64-w64-mingw32-g++.exe'
 ```
+
+`release` (the default) compiles with `-O2 -DNDEBUG -s`; `debug` uses `-O0 -g`. The release build also carries `VERSIONINFO` metadata (`1.0.0.0`, product name, company).
 
 x64 uses mingw-w64. arm64 uses llvm-mingw, the only toolchain that targets Windows on ARM, looked up under `.tools\llvm`.
 
@@ -60,6 +63,26 @@ Import-Certificate -FilePath .\.secrets\OpenInOpenCode.cer `
 It has to be Trusted **People**, not Root, and not the user store, because App Installer does not search user certificates. With that in place the package sideloads on a default Windows 11/10 machine, and **Developer Mode is not required for a signed package**.
 
 A loose developer install and a packaged install of the same identity cannot coexist. Use `.\scripts\install.ps1 -Replace` to switch back to a loose build.
+
+## Store build
+
+The Store package uses the reserved identity and a Store-only `StoreLogo`:
+
+```powershell
+.\scripts\new-cert.ps1 -Subject 'CN=CF970B36-771B-4CB4-BE90-BB2782DFF0B7' -OutputName StoreTest
+.\scripts\package.ps1 -Store -InstallTools
+```
+
+- Identity: `packaging/identity.store.json` — `Hemil.OpeninOpenCode`,
+  `CN=CF970B36-771B-4CB4-BE90-BB2782DFF0B7`, `PublisherDisplayName=Hemil`.
+- Output: `out\store\Hemil.OpeninOpenCode_<version>.msixbundle`.
+- The `StoreTest` certificate is a local test signer only; the Store re-signs on submission.
+  It is never published.
+- Store builds do not generate an `.appinstaller`, `.cer` or installer, and `ocshell update`
+  reports that updates are managed by the Microsoft Store.
+- Only `StoreLogo.png` comes from `packaging/AssetsStore/`; the context-menu icon, the square
+  tile logos and the README logo are unchanged.
+- Validate with the Windows App Certification Kit (WACK) before submitting.
 
 ## Test
 
@@ -133,7 +156,9 @@ ocshell settings set updateUri <url>     # override the built-in source
 
 `OnLaunch` update prompts only fire when the app is launched. This package has no launchable surface, so `AutomaticBackgroundTask` is the dependable path.
 
-The release workflow (`.github/workflows/release.yml`) builds and signs both architectures. The user-facing tag publishes only the versioned and fixed-name setup executables and `install.ps1`; the bundle, the `.appinstaller` and the `.cer` go to the fixed `updates` prerelease so testers see one download. Push a tag matching the package version (for example `v0.8.0.2`).
+The release workflow (`.github/workflows/release.yml`) builds and signs both architectures. The user-facing tag publishes only the versioned and fixed-name setup executables and `install.ps1`; the bundle, the `.appinstaller` and the `.cer` go to the fixed `updates` prerelease so testers see one download, and older bundles are pruned. A separate `store` job builds `-Store` and uploads the Store bundle as the `store-msix` artifact. Push a tag matching the package version (for example `v1.0.0.0`).
+
+CI pins llvm-mingw `20261020` and `Microsoft.Windows.SDK.BuildTools` `10.0.28000.2957`; both fail loudly rather than fall back to latest.
 
 Set `SIGNING_PFX_BASE64` and `SIGNING_PFX_PASSWORD` as repository secrets for a stable signer. Without them, the workflow generates a fresh self-signed certificate per release and publishes its `.cer`, which `install.ps1` trusts. That keeps tagged releases working, but it accumulates a certificate per release, so set the secrets before regular releases.
 

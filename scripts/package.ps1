@@ -48,7 +48,11 @@ function Install-SdkTools {
     Write-Host 'downloading Microsoft.Windows.SDK.BuildTools ...'
     New-Item -ItemType Directory -Force -Path $toolsRoot | Out-Null
     $index = Invoke-RestMethod 'https://api.nuget.org/v3-flatcontainer/microsoft.windows.sdk.buildtools/index.json'
-    $latest = ($index.versions | Where-Object { $_ -notmatch 'preview' })[-1]
+    $pinned = '10.0.28000.2957'
+    if ($index.versions -notcontains $pinned) {
+        throw "pinned SDK BuildTools version $pinned is unavailable; refusing to fall back to latest"
+    }
+    $latest = $pinned
     $zip = Join-Path $toolsRoot 'sdk.zip'
     $url = "https://api.nuget.org/v3-flatcontainer/microsoft.windows.sdk.buildtools/$latest/microsoft.windows.sdk.buildtools.$latest.nupkg"
     Write-Host "  version $latest"

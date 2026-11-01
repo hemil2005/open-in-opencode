@@ -90,7 +90,7 @@ int CommandLaunch(const std::vector<std::wstring>& arguments) {
     oc::Log(oc::LogLevel::Error, error);
     return Fail(error);
   }
-  oc::Log(oc::LogLevel::Info, L"launch " + detail);
+  oc::Log(oc::LogLevel::Debug, L"launch " + detail);
   return 0;
 }
 

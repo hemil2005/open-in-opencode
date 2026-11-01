@@ -6,9 +6,9 @@ name: release
 #   SIGNING_PFX_BASE64   base64 of .secrets\OpenInOpenCode.pfx
 #   SIGNING_PFX_PASSWORD the PFX password
 #
-# Tag the release with the package version (v0.8.0.2). The user-facing release carries only
+# Tag the release with the package version (v1.0.0.0). The user-facing release carries only
 # the setup executable and install.ps1; the fixed "updates" prerelease carries the bundle,
-# the .appinstaller and the certificate.
+# the .appinstaller and the certificate. A separate Store job builds the Store identity.
 
 on:
   push:
@@ -27,10 +27,8 @@ jobs:
       - name: Install llvm-mingw (arm64)
         shell: pwsh
         run: |
-          $release = Invoke-RestMethod 'https://api.github.com/repos/mstorsjo/llvm-mingw/releases/latest'
-          $asset = $release.assets | Where-Object { $_.name -like '*ucrt-x86_64.zip' } | Select-Object -First 1
-          Write-Host "using $($asset.name)"
-          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile llvm-mingw.zip
+          $url = 'https://github.com/mstorsjo/llvm-mingw/releases/download/20261020/llvm-mingw-20261020-ucrt-x86_64.zip'
+          Invoke-WebRequest -Uri $url -OutFile llvm-mingw.zip
           Expand-Archive -Path llvm-mingw.zip -DestinationPath .tools/llvm -Force
 
       - name: Restore signing certificate
@@ -85,6 +83,18 @@ jobs:
           Copy-Item "out/OpenInOpenCodeSetup-$($identity.version).exe" out/OpenInOpenCodeSetup.exe
           Copy-Item scripts/install-oneliner.ps1 out/install.ps1
 
+      - name: Assert the direct release
+        shell: pwsh
+        run: |
+          $identity = Get-Content packaging/identity.json -Raw | ConvertFrom-Json
+          if (-not (Test-Path "out/OpenInOpenCodeSetup-$($identity.version).exe")) { throw 'missing setup' }
+          if (-not (Test-Path 'out/install.ps1')) { throw 'missing install.ps1' }
+          $bundle = Get-ChildItem out -Filter '*.msixbundle' | Select-Object -First 1
+          if (-not $bundle) { throw 'missing bundle' }
+          $installer = Get-Content out/OpenInOpenCode.appinstaller -Raw
+          if ($installer -notmatch '/releases/download/updates/') { throw 'appinstaller must point at the updates tag' }
+          Write-Host 'direct release asserted'
+
       - name: Publish update payload
         shell: pwsh
         env:
@@ -101,6 +111,21 @@ jobs:
             out/OpenInOpenCode.appinstaller `
             out/OpenInOpenCode.cer --clobber
 
+      - name: Prune old update bundles
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $identity = Get-Content packaging/identity.json -Raw | ConvertFrom-Json
+          $keep = "OpenInOpenCode_$($identity.version).msixbundle"
+          $assets = gh release view updates --json assets --jq '.assets[].name'
+          foreach ($name in $assets) {
+            if ($name -like 'OpenInOpenCode_*.msixbundle' -and $name -ne $keep) {
+              Write-Host "deleting $name"
+              gh release delete-asset updates $name --yes
+            }
+          }
+
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
@@ -109,3 +134,50 @@ jobs:
             out/OpenInOpenCodeSetup.exe
             out/install.ps1
           fail_on_unmatched_files: true
+
+  store:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install llvm-mingw (arm64)
+        shell: pwsh
+        run: |
+          $url = 'https://github.com/mstorsjo/llvm-mingw/releases/download/20261020/llvm-mingw-20261020-ucrt-x86_64.zip'
+          Invoke-WebRequest -Uri $url -OutFile llvm-mingw.zip
+          Expand-Archive -Path llvm-mingw.zip -DestinationPath .tools/llvm -Force
+
+      - name: Generate the Store test certificate
+        shell: pwsh
+        run: |
+          ./scripts/new-cert.ps1 -Subject 'CN=CF970B36-771B-4CB4-BE90-BB2782DFF0B7' -OutputName StoreTest
+
+      - name: Build the Store package
+        shell: pwsh
+        run: ./scripts/package.ps1 -Store -InstallTools
+
+      - name: Assert the Store identity
+        shell: pwsh
+        run: |
+          $bundle = Get-ChildItem out/store -Filter '*.msixbundle' | Select-Object -First 1
+          if (-not $bundle) { throw 'no Store bundle produced' }
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $tmp = Join-Path $env:TEMP 'store-check'
+          Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+          [IO.Compression.ZipFile]::ExtractToDirectory($bundle.FullName, $tmp)
+          $bundleManifest = Get-Content (Join-Path $tmp 'AppxMetadata\AppxBundleManifest.xml') -Raw
+          if ($bundleManifest -notmatch 'Name="Hemil\.OpeninOpenCode"') { throw 'wrong bundle Name' }
+          if ($bundleManifest -notmatch 'Publisher="CN=CF970B36-771B-4CB4-BE90-BB2782DFF0B7"') { throw 'wrong bundle Publisher' }
+          if ($bundleManifest -notmatch 'Version="1\.0\.0\.0"') { throw 'wrong bundle Version' }
+          $msix = Get-ChildItem $tmp -Filter '*x64*.msix' | Select-Object -First 1
+          $pkg = Join-Path $tmp 'x64pkg'
+          [IO.Compression.ZipFile]::ExtractToDirectory($msix.FullName, $pkg)
+          $manifest = Get-Content (Join-Path $pkg 'AppxManifest.xml') -Raw
+          if ($manifest -notmatch '<PublisherDisplayName>Hemil</PublisherDisplayName>') { throw 'wrong PublisherDisplayName' }
+          Write-Host 'Store identity asserted'
+
+      - name: Upload the Store artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: store-msix
+          path: out/store/*.msixbundle
