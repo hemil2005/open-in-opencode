@@ -6,6 +6,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this pr
 
 ## [Unreleased]
 
+## [0.8.0.1] - 2026-11-01
+
+### Fixed
+
+- `ocshell update apply` hands the install to a detached helper that waits for the running
+  process to exit. The package can no longer fail with `0x80073D02` ("resources in use")
+  when updating itself.
+
 ## [0.8.0] - 2026-10-31
 
 ### Added

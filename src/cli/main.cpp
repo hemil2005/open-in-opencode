@@ -651,58 +651,54 @@ int CommandUpdateApply() {
   Line(L"downloading " + info.bundleUri);
   if (!oc::DownloadFile(info.bundleUri, bundle, &error)) return Fail(error);
 
-  Line(L"installing " + info.version);
-  const std::wstring script = L"Add-AppxPackage -Path '" + bundle + L"'";
+  Line(L"scheduling install of " + info.version);
+
+  // The package cannot replace itself while ocshell (an executable inside it) is running, so
+  // hand the install to a detached PowerShell that waits for this process to exit.
+  const std::wstring console_log = std::wstring(temp) + L"OpenInOpenCode_update.log";
+  const auto quote = [](const std::wstring& value) {
+    std::wstring escaped;
+    for (wchar_t c : value) {
+      if (c == L'\'') escaped += L"''";
+      else escaped += c;
+    }
+    return escaped;
+  };
+  const std::wstring parent = std::to_wstring(GetCurrentProcessId());
+  const std::wstring script =
+      L"$parentPid = " + parent + L"\n" +
+      L"$deadline = (Get-Date).AddSeconds(30)\n" +
+      L"while ((Get-Process -Id $parentPid -ErrorAction SilentlyContinue) -and "
+      L"((Get-Date) -lt $deadline)) { Start-Sleep -Milliseconds 200 }\n" +
+      L"Start-Sleep -Milliseconds 500\n" +
+      L"Add-AppxPackage -Path '" + quote(bundle) + L"' *> '" + quote(console_log) + L"'\n" +
+      L"Remove-Item '" + quote(bundle) + L"' -Force -ErrorAction SilentlyContinue\n";
+
   std::wstring command = L"powershell.exe -NoProfile -NonInteractive -EncodedCommand " +
                          EncodePowerShell(script);
-
-  // Capture PowerShell output: an exit code alone is not diagnosable.
-  wchar_t temp_dir[MAX_PATH] = {};
-  GetTempPathW(MAX_PATH, temp_dir);
-  const std::wstring console_log = std::wstring(temp_dir) + L"OpenInOpenCode_update.log";
-
-  SECURITY_ATTRIBUTES inherit;
-  ZeroMemory(&inherit, sizeof(inherit));
-  inherit.nLength = sizeof(inherit);
-  inherit.bInheritHandle = TRUE;
-  HANDLE output = CreateFileW(console_log.c_str(), GENERIC_WRITE, FILE_SHARE_READ, &inherit, CREATE_ALWAYS,
-                              FILE_ATTRIBUTE_NORMAL, nullptr);
 
   STARTUPINFOW startup;
   ZeroMemory(&startup, sizeof(startup));
   startup.cb = sizeof(startup);
-  if (output != INVALID_HANDLE_VALUE) {
-    startup.dwFlags = STARTF_USESTDHANDLES;
-    startup.hStdOutput = output;
-    startup.hStdError = output;
-  }
-
   PROCESS_INFORMATION process;
   ZeroMemory(&process, sizeof(process));
-  if (!CreateProcessW(nullptr, &command[0], nullptr, nullptr, output != INVALID_HANDLE_VALUE,
-                      CREATE_NO_WINDOW, nullptr, nullptr, &startup, &process)) {
-    if (output != INVALID_HANDLE_VALUE) CloseHandle(output);
-    return Fail(L"could not start PowerShell");
+
+  // Break away from a job object when allowed, so the helper outlives this process.
+  const DWORD flags = CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP;
+  BOOL started = CreateProcessW(nullptr, &command[0], nullptr, nullptr, FALSE,
+                                flags | CREATE_BREAKAWAY_FROM_JOB, nullptr, nullptr, &startup, &process);
+  if (!started) {
+    started = CreateProcessW(nullptr, &command[0], nullptr, nullptr, FALSE, flags, nullptr, nullptr,
+                             &startup, &process);
   }
-  WaitForSingleObject(process.hProcess, 180000);
-  DWORD exit_code = 1;
-  GetExitCodeProcess(process.hProcess, &exit_code);
+  if (!started) return Fail(L"could not start the update helper");
+
   CloseHandle(process.hThread);
   CloseHandle(process.hProcess);
-  if (output != INVALID_HANDLE_VALUE) CloseHandle(output);
-  DeleteFileW(bundle.c_str());
 
-  std::wstring details;
-  if (exit_code != 0) oc::ReadTextFile(console_log, &details);
-  DeleteFileW(console_log.c_str());
-
-  if (exit_code != 0) {
-    std::wstring message = L"package installation failed (PowerShell exit " + std::to_wstring(exit_code) + L")";
-    if (!details.empty()) message += L"\n" + details;
-    return Fail(message);
-  }
-
-  Line(L"updated to " + info.version);
+  Line(L"update scheduled: the installer runs once this process exits");
+  Line(L"log      : " + console_log);
+  Line(L"check    : ocshell version");
   return 0;
 }
 
