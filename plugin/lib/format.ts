@@ -35,8 +35,8 @@ export function formatTerminal(settings: Settings | null, terminals: Terminal[])
     return selected ? `${selected.name} (${selected.id})` : `${id} (not detected)`
   }
 
-  const automatic = terminals.find((terminal) => terminal.supported)
-  return automatic ? `${automatic.name} (${automatic.id})` : "none detected"
+  // Auto with no id no longer picks a terminal behind the user's back.
+  return "Windows default"
 }
 
 export function formatBinary(doctor: Doctor | null): string {
@@ -318,7 +318,7 @@ export function validateLaunchLabel(value: string): Validation {
 export function validateLaunchFlags(value: string): Validation<string[]> {
   const trimmed = value.trim()
   if (!trimmed) {
-    return { ok: false, message: "Enter at least one flag, for example --continue." }
+    return { ok: false, message: "Enter at least one argument, for example --continue or a subcommand." }
   }
   if (trimmed.length > 300) {
     return { ok: false, message: "Flags are limited to 300 characters." }
@@ -337,17 +337,11 @@ export function validateLaunchFlags(value: string): Validation<string[]> {
 
   const parsed = validateCustomArgs(trimmed)
   if (!parsed.ok || parsed.value.length === 0) {
-    return { ok: false, message: "Enter at least one flag, for example --continue." }
+    return { ok: false, message: "Enter at least one argument, for example --continue or a subcommand." }
   }
 
-  const first = parsed.value[0] ?? ""
-  if (first === "-" || first === "--" || !first.startsWith("-")) {
-    return {
-      ok: false,
-      message: "Flags must start with - or --. The opencode prefix is automatic.",
-    }
-  }
-
+  // Any argument is accepted: flags (--continue), options with values (--model fast), and
+  // subcommands (mini). The opencode prefix is added automatically.
   return { ok: true, value: parsed.value }
 }
 

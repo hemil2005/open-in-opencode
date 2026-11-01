@@ -112,7 +112,7 @@ export async function pickTerminal(hooks: EditorHooks): Promise<void> {
         {
           title: "Automatic",
           value: "auto",
-          description: "Use the first supported terminal",
+          description: "Use the selected terminal, or the Windows default",
         },
         {
           title: "Windows default",
@@ -292,7 +292,7 @@ export async function selectTerminalMode(hooks: EditorHooks): Promise<void> {
     hooks.context.ui.dialog.select<"auto" | "default" | "custom">({
       title: "Terminal mode",
       options: [
-        { title: "Automatic", value: "auto", description: "Pick the first supported terminal" },
+        { title: "Automatic", value: "auto", description: "Use the selected terminal, or the Windows default" },
         { title: "Windows default", value: "default", description: "Let Windows choose" },
         { title: "Custom", value: "custom", description: "Use a custom path and arguments" },
       ],
@@ -379,7 +379,7 @@ async function launchOptionFlags(
     hooks.context.ui.dialog.prompt({
       title,
       description:
-        "Type flags exactly as they should follow opencode. Include - or --; the opencode prefix is automatic.",
+        "Type arguments exactly as they should follow opencode, including subcommands. The opencode prefix is automatic.",
       placeholder: "--model fast",
       value,
     }),
@@ -515,7 +515,7 @@ export async function editCustomArgs(hooks: EditorHooks): Promise<void> {
     hooks.context.ui.dialog.prompt({
       title: "Custom terminal arguments",
       description: "Space-separated. Double quotes group words. Leave empty to clear.",
-      placeholder: '--flag "value with spaces"',
+      placeholder: '--flag "value" or subcommand',
       value: formatArgs(settings.terminal.customArgs),
     }),
   )

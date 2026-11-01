@@ -132,6 +132,9 @@ bool LoadSettings(Settings* out, std::wstring* warning) {
       std::wstring error;
       if (json::Parse(text, &parsed, &error)) {
         *out = SettingsFromJson(parsed);
+        // The old build could persist an automatic terminal pick. Do not carry it over:
+        // auto now means the Windows default unless the user explicitly chooses a terminal.
+        if (out->terminal.mode == L"auto") out->terminal.id.clear();
         SaveSettings(*out, nullptr);
         return true;
       }

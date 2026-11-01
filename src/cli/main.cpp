@@ -396,16 +396,9 @@ int CommandDoctor(const std::vector<std::wstring>& arguments) {
 
   std::vector<oc::Terminal> terminals = oc::DiscoverTerminals();
   const oc::Terminal* chosen = nullptr;
-  if (settings.terminal.mode == L"auto") {
-    if (!settings.terminal.id.empty()) chosen = oc::FindTerminal(terminals, settings.terminal.id);
-    if (!chosen || !chosen->supported) {
-      for (const auto& terminal : terminals) {
-        if (terminal.supported) {
-          chosen = &terminal;
-          break;
-        }
-      }
-    }
+  if (settings.terminal.mode == L"auto" && !settings.terminal.id.empty()) {
+    chosen = oc::FindTerminal(terminals, settings.terminal.id);
+    if (chosen && !chosen->supported) chosen = nullptr;
   }
 
   std::wstring package = PackageState();

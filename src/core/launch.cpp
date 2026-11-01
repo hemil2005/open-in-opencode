@@ -10,16 +10,6 @@
 #include "core/terminals.hpp"
 
 namespace oc {
-namespace {
-
-const Terminal* FirstSupported(const std::vector<Terminal>& terminals) {
-  for (const auto& terminal : terminals) {
-    if (terminal.supported && !terminal.path.empty()) return &terminal;
-  }
-  return nullptr;
-}
-
-}  // namespace
 
 bool BuildLaunchPlan(const Settings& settings, const std::wstring& directory, const std::wstring& flags,
                      LaunchPlan* plan, std::wstring* error) {
@@ -64,14 +54,15 @@ bool BuildLaunchPlan(const Settings& settings, const std::wstring& directory, co
     if (!settings.terminal.id.empty()) {
       chosen = FindTerminal(terminals, settings.terminal.id);
       if (chosen && (!chosen->supported || chosen->path.empty())) chosen = nullptr;
-      if (!chosen) plan->note = L"terminal '" + settings.terminal.id + L"' unavailable; using default";
+      if (!chosen) {
+        plan->note = L"terminal '" + settings.terminal.id + L"' unavailable; using the Windows default";
+      }
     }
-    if (!chosen) chosen = FirstSupported(terminals);
 
     if (!chosen) {
-      // No terminal at all: start opencode directly and let Windows pick the console host.
+      // No terminal selected: start opencode directly and let Windows pick the console host.
       argv = command_argv;
-      plan->note = L"no terminal detected; launching directly";
+      if (settings.terminal.id.empty()) plan->note = L"no terminal selected; using the Windows default";
     } else {
       if (!BuildTerminalArgv(*chosen, directory, command_argv, &argv, error)) return false;
       plan->terminalId = chosen->id;

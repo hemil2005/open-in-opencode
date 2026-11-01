@@ -14,7 +14,7 @@ struct Definition {
   std::vector<std::wstring> args;  // empty = detected but unsupported
 };
 
-// Ordered: the first entry that is installed becomes the default when no terminal is chosen.
+// Ordered: the picker lists the most common terminals first. No terminal is chosen automatically.
 const std::vector<Definition>& Definitions() {
   static const std::vector<Definition> definitions = {
       {L"wt", L"Windows Terminal", L"wt.exe", {L"-d", L"{dir}", L"{command}"}},

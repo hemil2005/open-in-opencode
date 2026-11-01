@@ -180,7 +180,7 @@ export function buildRows(snapshot: Snapshot): RowModel {
   const hasSupportedTerminal = snapshot.terminals.some((terminal) => terminal.supported)
 
   let terminalTone: RowTone = "normal"
-  let terminalDetail = "Automatic selection."
+  let terminalDetail = "Windows default unless a terminal is selected."
 
   if (!settings) {
     terminalTone = "error"
@@ -202,7 +202,7 @@ export function buildRows(snapshot: Snapshot): RowModel {
       terminalDetail = `Selected terminal ${settings.terminal.id} was not detected.`
     }
   } else if (hasSupportedTerminal) {
-    terminalDetail = "Automatic selection."
+    terminalDetail = "Windows default unless a terminal is selected."
   } else {
     terminalTone = "warning"
     terminalDetail = "No supported terminal was detected."

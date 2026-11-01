@@ -170,7 +170,7 @@ bool ValidateLaunchLabel(const std::wstring& label, std::wstring* error) {
 bool ValidateLaunchFlags(const std::wstring& flags, std::wstring* error) {
   const std::wstring trimmed = Trim(flags);
   if (trimmed.empty()) {
-    if (error) *error = L"Enter at least one flag, for example --continue.";
+    if (error) *error = L"Enter at least one argument, for example --continue or a subcommand.";
     return false;
   }
   if (trimmed.size() > kMaxFlagsLength) {
@@ -193,13 +193,11 @@ bool ValidateLaunchFlags(const std::wstring& flags, std::wstring* error) {
 
   const std::vector<std::wstring> parsed = SplitArguments(trimmed);
   if (parsed.empty()) {
-    if (error) *error = L"Enter at least one flag, for example --continue.";
+    if (error) *error = L"Enter at least one argument, for example --continue or a subcommand.";
     return false;
   }
-  if (parsed[0].empty() || parsed[0] == L"-" || parsed[0] == L"--" || parsed[0][0] != L'-') {
-    if (error) *error = L"Flags must start with - or --. The opencode prefix is automatic.";
-    return false;
-  }
+  // Any argument is accepted: flags (--continue), options with values (--model fast), and
+  // subcommands (mini). The opencode prefix is added automatically.
   return true;
 }
 

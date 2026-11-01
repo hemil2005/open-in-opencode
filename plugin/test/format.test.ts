@@ -60,16 +60,16 @@ describe("formatTerminal", () => {
     )
   })
 
-  test("falls back to the first supported terminal when no id is set", () => {
+  test("uses the Windows default when no terminal is selected", () => {
     expect(formatTerminal(settingsWith({ terminal: { id: "" } }), terminals)).toBe(
-      "WezTerm (GUI) (wezterm-gui)",
+      "Windows default",
     )
   })
 
-  test("reports when no supported terminal exists", () => {
+  test("uses the Windows default even when no supported terminal exists", () => {
     const unsupported = terminals.filter((terminal) => !terminal.supported)
     expect(formatTerminal(settingsWith({ terminal: { id: "" } }), unsupported)).toBe(
-      "none detected",
+      "Windows default",
     )
   })
 })
@@ -359,16 +359,17 @@ describe("launch options", () => {
     expect(validateLaunchLabel("bad\nname").ok).toBe(false)
   })
 
-  test("validates flags with an automatic opencode prefix", () => {
+  test("accepts flags, options and subcommands", () => {
     expect(validateLaunchFlags("--model fast")).toEqual({
       ok: true,
       value: ["--model", "fast"],
     })
     expect(validateLaunchFlags("--continue").ok).toBe(true)
     expect(validateLaunchFlags("-h").ok).toBe(true)
-    expect(validateLaunchFlags("continue").ok).toBe(false)
-    expect(validateLaunchFlags("-").ok).toBe(false)
-    expect(validateLaunchFlags("--").ok).toBe(false)
+    expect(validateLaunchFlags("mini").ok).toBe(true)
+    expect(validateLaunchFlags("continue").ok).toBe(true)
+    expect(validateLaunchFlags("-").ok).toBe(true)
+    expect(validateLaunchFlags("--").ok).toBe(true)
     expect(validateLaunchFlags('--flag "unterminated').ok).toBe(false)
     expect(validateLaunchFlags("--flag\nvalue").ok).toBe(false)
   })

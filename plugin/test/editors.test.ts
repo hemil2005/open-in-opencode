@@ -262,13 +262,21 @@ describe("launch option editors", () => {
     ])
   })
 
-  test("never writes invalid flags", async () => {
-    const h = harness({ prompts: ["Fast model", "continue"] })
+  test("never writes an unmatched quote", async () => {
+    const h = harness({ prompts: ["Fast model", '--flag "unterminated'] })
 
     await addLaunchOption(h.hooks)
 
     expect(h.calls).toEqual([])
-    expect(h.alerts.at(-1)).toContain("must start with - or --")
+    expect(h.alerts.at(-1)).toContain("unmatched quote")
+  })
+
+  test("accepts subcommands", async () => {
+    const h = harness({ prompts: ["Mini", "mini"] })
+
+    await addLaunchOption(h.hooks)
+
+    expect(h.calls).toEqual([["settings", "launch", "add", "Mini", "mini"]])
   })
 
   test("refuses a fourth custom option", async () => {

@@ -6,6 +6,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this pr
 
 ## [Unreleased]
 
+## [0.8.0.3] - 2026-11-01
+
+### Fixed
+
+- `terminal.mode=auto` with no terminal selected now uses the Windows default instead of
+  silently picking the first detected terminal (usually WezTerm). Settings migrated from the
+  old name no longer carry over an automatic terminal choice.
+- Custom launch options accept subcommands and plain arguments (for example `mini`), not just
+  flags starting with `-`.
+
 ## [0.8.0.2] - 2026-11-01
 
 ### Changed
