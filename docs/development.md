@@ -113,13 +113,14 @@ The plugin tests do not need OpenCode running. Manual TUI checks use OpenCode 2.
 Updates use the standard MSIX `.appinstaller` mechanism. There is no custom updater.
 
 ```powershell
-.\scripts\make-appinstaller.ps1 -Repo hemil2005/open-in-opencode   # -> out\OpenInOpenCode.appinstaller
+.\scripts\make-appinstaller.ps1 -Repo hemil2005/open-in-opencode -Tag updates   # -> out\OpenInOpenCode.appinstaller
 ```
 
-Publish it as a release asset with a **fixed** name, so the URL clients check never changes:
+Publish it as a release asset with a **fixed** name in the `updates` prerelease, so the URL
+clients check never changes:
 
 ```
-https://github.com/hemil2005/open-in-opencode/releases/latest/download/OpenInOpenCode.appinstaller
+https://github.com/hemil2005/open-in-opencode/releases/download/updates/OpenInOpenCode.appinstaller
 ```
 
 Windows then updates the package itself (`AutomaticBackgroundTask`, every 8 hours). Users can check or apply updates manually:
@@ -132,7 +133,7 @@ ocshell settings set updateUri <url>     # override the built-in source
 
 `OnLaunch` update prompts only fire when the app is launched. This package has no launchable surface, so `AutomaticBackgroundTask` is the dependable path.
 
-The release workflow (`.github/workflows/release.yml`) builds and signs both architectures and publishes six fixed-name assets: the bundle, the versioned and fixed-name setup executables, the `.appinstaller`, the `.cer` and `install.ps1`. Push a tag matching the package version (for example `v0.8.0.1`).
+The release workflow (`.github/workflows/release.yml`) builds and signs both architectures. The user-facing tag publishes only the versioned and fixed-name setup executables and `install.ps1`; the bundle, the `.appinstaller` and the `.cer` go to the fixed `updates` prerelease so testers see one download. Push a tag matching the package version (for example `v0.8.0.2`).
 
 Set `SIGNING_PFX_BASE64` and `SIGNING_PFX_PASSWORD` as repository secrets for a stable signer. Without them, the workflow generates a fresh self-signed certificate per release and publishes its `.cer`, which `install.ps1` trusts. That keeps tagged releases working, but it accumulates a certificate per release, so set the secrets before regular releases.
 
@@ -142,17 +143,17 @@ The one-liner sources are published as fixed-name release assets:
 
 | Source | Release asset | Purpose |
 |---|---|---|
-| `scripts/install-oneliner.ps1` | `install.ps1` | Checks the Windows build and installs the supported path |
+| `scripts/install-oneliner.ps1` | `install.ps1` | Downloads and runs the setup executable |
 
 Uninstall from **Settings > Apps**. `scripts/uninstall-oneliner.ps1` stays in the repository for
 scripted removal, but it is not a release asset.
 
-The one-liner self-elevates once. On Windows 11 it trusts the certificate and runs
-`Add-AppxPackage -AppInstallerFile`; if that fails it downloads the bundle directly. On
-Windows 10 it runs the setup executable silently.
+The one-liner self-elevates once, downloads the setup executable, and runs it silently. The
+setup trusts the certificate and installs the MSIX on Windows 11, or installs the CLI and
+classic verbs on Windows 10.
 
-`release.yml` also publishes fixed-name assets so the one-liner URL stays stable:
-`OpenInOpenCode.appinstaller`, `OpenInOpenCode.cer` and `OpenInOpenCodeSetup.exe`.
+The user-facing release also carries `OpenInOpenCodeSetup.exe` (fixed name) and the versioned
+setup; the `updates` prerelease holds the payload the updater reads.
 
 Package-manager manifests are written but not submitted:
 

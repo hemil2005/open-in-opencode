@@ -47,7 +47,7 @@ Copy-Item $bundle (Join-Path $root 'out\OpenInOpenCode.msixbundle') -Force
 $appinstaller = Join-Path $root 'out\OpenInOpenCode.appinstaller'
 if (-not (Test-Path $appinstaller)) {
     Write-Host 'generating appinstaller...'
-    & (Join-Path $PSScriptRoot 'make-appinstaller.ps1') -Repo $Repo
+    & (Join-Path $PSScriptRoot 'make-appinstaller.ps1') -Repo $Repo -Tag updates
     if (-not (Test-Path $appinstaller)) { throw 'appinstaller generation failed' }
 }
 

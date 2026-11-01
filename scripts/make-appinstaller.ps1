@@ -4,18 +4,19 @@
     Generates the .appinstaller file that drives automatic updates.
 
 .DESCRIPTION
-    The .appinstaller must be published at a stable URL so installed clients can find new
-    versions. The convention used here is a release asset with a fixed name:
+    The .appinstaller is published in the fixed "updates" release (a prerelease, so it never
+    shows as Latest), together with the bundle and certificate:
 
-        https://github.com/<owner>/<repo>/releases/latest/download/OpenInOpenCode.appinstaller
+        https://github.com/<owner>/<repo>/releases/download/updates/OpenInOpenCode.appinstaller
 
-    Inside, MainBundle/Uri points at the versioned bundle of that release.
+    Inside, MainBundle/Uri points at the versioned bundle in the same release. The user-facing
+    release stays clean: only the setup executable and install.ps1.
 
 .PARAMETER Repo
     GitHub repository as owner/name.
 
 .PARAMETER Tag
-    Release tag. Defaults to v<version>.
+    Release tag that holds the payload. Use "updates" (the default for releases).
 
 .PARAMETER BaseUri
     Overrides both URIs, e.g. http://localhost:8791 for local testing.
@@ -41,8 +42,8 @@ if ($BaseUri) {
     $bundleUri = "$($BaseUri.TrimEnd('/'))/OpenInOpenCode_$version.msixbundle"
 } else {
     if (-not $Repo) { throw 'Pass -Repo <owner/name> (or -BaseUri for a local test).' }
-    if (-not $Tag) { $Tag = "v$version" }
-    $installerUri = "https://github.com/$Repo/releases/latest/download/OpenInOpenCode.appinstaller"
+    if (-not $Tag) { $Tag = 'updates' }
+    $installerUri = "https://github.com/$Repo/releases/download/$Tag/OpenInOpenCode.appinstaller"
     $bundleUri = "https://github.com/$Repo/releases/download/$Tag/OpenInOpenCode_$version.msixbundle"
 }
 

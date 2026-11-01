@@ -6,8 +6,9 @@ name: release
 #   SIGNING_PFX_BASE64   base64 of .secrets\OpenInOpenCode.pfx
 #   SIGNING_PFX_PASSWORD the PFX password
 #
-# Tag the release with the package version (v0.8.0.1) so the .appinstaller bundle URL
-# matches what make-appinstaller.ps1 generates.
+# Tag the release with the package version (v0.8.0.2). The user-facing release carries only
+# the setup executable and install.ps1; the fixed "updates" prerelease carries the bundle,
+# the .appinstaller and the certificate.
 
 on:
   push:
@@ -71,7 +72,7 @@ jobs:
 
       - name: Generate .appinstaller
         shell: pwsh
-        run: ./scripts/make-appinstaller.ps1 -Repo ${{ github.repository }}
+        run: ./scripts/make-appinstaller.ps1 -Repo ${{ github.repository }} -Tag updates
 
       - name: Build installer
         shell: pwsh
@@ -84,13 +85,26 @@ jobs:
           Copy-Item "out/OpenInOpenCodeSetup-$($identity.version).exe" out/OpenInOpenCodeSetup.exe
           Copy-Item scripts/install-oneliner.ps1 out/install.ps1
 
+      - name: Publish update payload
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $identity = Get-Content packaging/identity.json -Raw | ConvertFrom-Json
+          gh release view updates 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create updates --prerelease --title 'Open in OpenCode updates' `
+              --notes 'Update payload used by the app installer and ocshell update. Not a manual download.'
+          }
+          gh release upload updates `
+            "out/OpenInOpenCode_$($identity.version).msixbundle" `
+            out/OpenInOpenCode.appinstaller `
+            out/OpenInOpenCode.cer --clobber
+
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            out/OpenInOpenCode_*.msixbundle
-            out/OpenInOpenCode.appinstaller
-            out/OpenInOpenCode.cer
             out/OpenInOpenCodeSetup-*.exe
             out/OpenInOpenCodeSetup.exe
             out/install.ps1

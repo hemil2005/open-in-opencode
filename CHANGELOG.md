@@ -6,6 +6,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this pr
 
 ## [Unreleased]
 
+## [0.8.0.2] - 2026-11-01
+
+### Changed
+
+- The user-facing release now publishes only the setup executable and `install.ps1`. The
+  bundle, `.appinstaller` and certificate live in a fixed `updates` prerelease, so testers
+  see one download instead of six assets.
+- `install.ps1` now just downloads and runs the setup executable; the setup already carries
+  the certificate and package, so no separate MSIX/cer download is needed.
+
 ## [0.8.0.1] - 2026-11-01
 
 ### Fixed
