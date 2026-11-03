@@ -1,11 +1,12 @@
 # Distribution
 
-Open in OpenCode ships through two channels.
+Open in OpenCode ships through three channels.
 
 | Channel | Signing | User experience |
 |---|---|---|
 | Microsoft Store (MSIX) | Microsoft re-signs on submission | No SmartScreen warning, no certificate step, Store-managed updates |
 | Direct download (EXE / one-liner) | Stable self-signed certificate | SmartScreen "unknown publisher" until the user chooses Run anyway; the installer trusts the certificate |
+| npm (`open-in-opencode`) | Uses the direct-download setup | Installs a Node bootstrapper; the signed setup still performs the install and asks for administrator approval |
 
 ## Microsoft Store
 
@@ -31,13 +32,26 @@ Open in OpenCode ships through two channels.
 - Updates use the fixed `updates` prerelease and the `.appinstaller`; `ocshell update apply`
   installs from a detached helper after the running process exits.
 
+## npm
+
+- The npm package contains only a Node bootstrapper. It downloads the fixed-name
+  `OpenInOpenCodeSetup.exe` and `checksums.txt` from the latest direct release, verifies the
+  SHA-256, and runs the signed setup elevated.
+- npm does not sign anything or reimplement the installation. The direct-download certificate
+  and installer rules above still apply.
+- The package is Windows-only and requires Node.js 22 or newer. `npm install -g` does not
+  change the machine; installation is the explicit `open-in-opencode install` command.
+- `doctor`, `settings` and `update` delegate to `ocshell.exe`. The npm wrapper version is
+  independent of the app's four-part version.
+
 ## Why both MSIX and EXE
 
 - The Windows 11 top-level context menu requires a packaged app
   (`windows.fileExplorerContextMenus`).
 - The EXE is the bootstrapper: it installs the MSIX on Windows 11, or the CLI and classic
   registry verbs on Windows 10.
-- winget and scoop consume the EXE.
+- winget and scoop consume the EXE. npm uses the EXE as well, so there is still one signed
+  installer and one set of install rules.
 
 ## Store assets
 
@@ -52,6 +66,11 @@ Open in OpenCode ships through two channels.
 
 winget and scoop manifests live under `manifests/` and point at the versioned setup executable.
 They are written but not submitted.
+
+The npm package lives under `npm/` and is published as `open-in-opencode`. It is published
+separately from the app release so the wrapper can be updated without a new app build. The
+release workflow publishes `checksums.txt`; the npm CLI refuses to install without a matching
+entry.
 
 ## Pipeline
 

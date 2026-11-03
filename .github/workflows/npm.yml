@@ -1,0 +1,77 @@
+name: npm
+
+on:
+  push:
+    paths:
+      - "npm/**"
+      - ".github/workflows/npm.yml"
+      - ".github/workflows/npm-publish.yml"
+  pull_request:
+    paths:
+      - "npm/**"
+      - ".github/workflows/npm.yml"
+      - ".github/workflows/npm-publish.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: npm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: npm/package-lock.json
+
+      - name: Install
+        run: npm ci --ignore-scripts
+
+      - name: Test
+        run: node --test
+
+      - name: Check the package contents
+        run: npm pack --dry-run
+
+      - name: Smoke-test the packed CLI
+        shell: pwsh
+        run: |
+          npm pack | Out-Null
+          $tarball = (Get-ChildItem *.tgz | Select-Object -First 1).FullName
+          $prefix = Join-Path $env:RUNNER_TEMP 'oc-npm-smoke'
+          Remove-Item $prefix -Recurse -Force -ErrorAction SilentlyContinue
+          npm install --prefix $prefix $tarball --ignore-scripts
+          if ($LASTEXITCODE -ne 0) { throw 'npm install failed' }
+
+          $bin = Join-Path $prefix 'node_modules\.bin\open-in-opencode.cmd'
+          & $bin --help | Out-Host
+          if ($LASTEXITCODE -ne 0) { throw '--help failed' }
+
+          & $bin --version | Out-Host
+          if ($LASTEXITCODE -ne 0) { throw '--version failed' }
+
+          & $bin install --dry-run | Out-Host
+          if ($LASTEXITCODE -ne 0) { throw 'install --dry-run failed' }
+
+  logic:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: npm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Test platform-independent logic
+        run: node --test

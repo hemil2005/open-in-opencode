@@ -46,10 +46,21 @@ Running it again upgrades in place.
 ```powershell
 winget install OpenInOpenCode.OpenInOpenCode
 scoop install open-in-opencode
+
+npm install -g open-in-opencode
+open-in-opencode install
 ```
 
-The manifests live under `manifests/`; they become installable once the first release is
-tagged and the winget/scoop entries are accepted.
+The npm package is a small bootstrapper: it downloads the signed setup, verifies its SHA-256,
+and runs it. It requires Node.js 22 or newer and Windows 10/11. `npm install` itself does not
+change the machine or request administrator rights; `open-in-opencode install` does. Use
+`npx open-in-opencode install` if you do not want a global npm install. SmartScreen may show
+the same "unknown publisher" warning as the direct installer. App updates continue through the
+normal package update channel.
+
+The winget/scoop manifests live under `manifests/`; they become installable once the first
+release is tagged and the entries are accepted. The npm package lives under `npm/` and is
+published as `open-in-opencode`.
 
 ### From the installer
 

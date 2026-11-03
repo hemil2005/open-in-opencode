@@ -83,12 +83,29 @@ jobs:
           Copy-Item "out/OpenInOpenCodeSetup-$($identity.version).exe" out/OpenInOpenCodeSetup.exe
           Copy-Item scripts/install-oneliner.ps1 out/install.ps1
 
+      - name: Stage checksums
+        shell: pwsh
+        run: |
+          $identity = Get-Content packaging/identity.json -Raw | ConvertFrom-Json
+          $files = @(
+            'out/OpenInOpenCodeSetup.exe',
+            "out/OpenInOpenCodeSetup-$($identity.version).exe"
+          )
+          $lines = foreach ($file in $files) {
+            if (-not (Test-Path $file)) { throw "missing $file" }
+            $hash = (Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $(Split-Path $file -Leaf)"
+          }
+          Set-Content -Path out/checksums.txt -Value $lines -Encoding ascii
+          Get-Content out/checksums.txt
+
       - name: Assert the direct release
         shell: pwsh
         run: |
           $identity = Get-Content packaging/identity.json -Raw | ConvertFrom-Json
           if (-not (Test-Path "out/OpenInOpenCodeSetup-$($identity.version).exe")) { throw 'missing setup' }
           if (-not (Test-Path 'out/install.ps1')) { throw 'missing install.ps1' }
+          if (-not (Test-Path 'out/checksums.txt')) { throw 'missing checksums.txt' }
           $bundle = Get-ChildItem out -Filter '*.msixbundle' | Select-Object -First 1
           if (-not $bundle) { throw 'missing bundle' }
           $installer = Get-Content out/OpenInOpenCode.appinstaller -Raw
@@ -133,6 +150,7 @@ jobs:
             out/OpenInOpenCodeSetup-*.exe
             out/OpenInOpenCodeSetup.exe
             out/install.ps1
+            out/checksums.txt
           fail_on_unmatched_files: true
 
   store:

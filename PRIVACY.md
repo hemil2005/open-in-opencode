@@ -39,8 +39,11 @@ The app only uses the network for updates:
 - The direct-download build uses the MSIX `.appinstaller` mechanism and `ocshell update
   check|apply` to contact GitHub (github.com) for version information and a newer build.
 - The Microsoft Store build is updated by the Store and does not contact GitHub.
-- Update requests contain no personal data beyond what is inherent to any HTTPS request (such
-  as your IP address, handled by GitHub or Microsoft under their own privacy policies).
+- The npm package downloads the setup executable and its SHA-256 checksum from GitHub when you
+  run `open-in-opencode install`. It makes no other network requests.
+- Update and download requests contain no personal data beyond what is inherent to any HTTPS
+  request (such as your IP address, handled by GitHub or Microsoft under their own privacy
+  policies).
 
 The app does not contact any other server.
 

@@ -1,0 +1,50 @@
+{
+  "name": "open-in-opencode",
+  "version": "0.1.0",
+  "description": "Install the Open in OpenCode Windows context-menu extension from npm.",
+  "type": "module",
+  "bin": {
+    "open-in-opencode": "bin/open-in-opencode.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "check": "node --test",
+    "pack:check": "npm pack --dry-run"
+  },
+  "keywords": [
+    "opencode",
+    "windows",
+    "context-menu",
+    "explorer",
+    "installer"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hemil2005/open-in-opencode.git",
+    "directory": "npm"
+  },
+  "homepage": "https://github.com/hemil2005/open-in-opencode",
+  "bugs": {
+    "url": "https://github.com/hemil2005/open-in-opencode/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

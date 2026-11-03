@@ -6,6 +6,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this pr
 
 ## [Unreleased]
 
+### Added
+
+- npm installation channel: `npm install -g open-in-opencode` followed by
+  `open-in-opencode install`. The npm package is a dependency-free bootstrapper that verifies
+  the release SHA-256 and runs the existing signed setup; `doctor`, `settings`, `update` and
+  `uninstall` delegate to the installed app.
+- Release assets now include `checksums.txt` so the npm CLI can verify the setup download.
+
 ## [1.0.0] - 2026-11-01
 
 ### Added

@@ -1,0 +1,55 @@
+name: npm publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Only run npm publish --dry-run"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    environment: npm
+    defaults:
+      run:
+        working-directory: npm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: npm
+          cache-dependency-path: npm/package-lock.json
+
+      - name: Install
+        run: npm ci --ignore-scripts
+
+      - name: Test
+        run: node --test
+
+      - name: Show the package being published
+        shell: pwsh
+        run: |
+          $package = Get-Content package.json -Raw | ConvertFrom-Json
+          Write-Host "publishing $($package.name)@$($package.version)"
+
+      - name: Publish (dry run)
+        if: ${{ inputs.dry-run }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public --dry-run
+
+      - name: Publish
+        if: ${{ !inputs.dry-run }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public --provenance

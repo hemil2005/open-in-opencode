@@ -156,7 +156,7 @@ ocshell settings set updateUri <url>     # override the built-in source
 
 `OnLaunch` update prompts only fire when the app is launched. This package has no launchable surface, so `AutomaticBackgroundTask` is the dependable path.
 
-The release workflow (`.github/workflows/release.yml`) builds and signs both architectures. The user-facing tag publishes only the versioned and fixed-name setup executables and `install.ps1`; the bundle, the `.appinstaller` and the `.cer` go to the fixed `updates` prerelease so testers see one download, and older bundles are pruned. A separate `store` job builds `-Store` and uploads the Store bundle as the `store-msix` artifact. Push a tag matching the package version (for example `v1.0.0.0`).
+The release workflow (`.github/workflows/release.yml`) builds and signs both architectures. The user-facing tag publishes the versioned and fixed-name setup executables, `install.ps1` and `checksums.txt`; the bundle, the `.appinstaller` and the `.cer` go to the fixed `updates` prerelease so testers see one download, and older bundles are pruned. A separate `store` job builds `-Store` and uploads the Store bundle as the `store-msix` artifact. Push a tag matching the package version (for example `v1.0.0.0`).
 
 CI pins llvm-mingw `20261020` and `Microsoft.Windows.SDK.BuildTools` `10.0.28000.2957`; both fail loudly rather than fall back to latest.
 
@@ -188,6 +188,44 @@ manifests\scoop\open-in-opencode.json
 ```
 
 Refresh their SHA256 after every signed build.
+
+## npm package
+
+The npm channel lives in `npm/` and is a dependency-free ESM Node package. It bootstraps the
+existing signed setup; it does not build, sign or reimplement the installer.
+
+```powershell
+cd npm
+node --test
+npm pack --dry-run
+```
+
+To test the packed artifact locally:
+
+```powershell
+npm pack
+npm install --prefix .\smoke .\open-in-opencode-0.1.0.tgz
+.\smoke\node_modules\.bin\open-in-opencode.cmd --help
+.\smoke\node_modules\.bin\open-in-opencode.cmd install --dry-run
+```
+
+`install` downloads the fixed-name setup and `checksums.txt` from the latest release, or a
+pinned release with `--version <x.y.z.w>`, verifies SHA-256, and runs the setup elevated.
+`doctor`, `settings` and `update` delegate to `ocshell.exe`. `uninstall` runs the Inno
+uninstaller when it exists, then falls back to removing the MSIX package.
+
+The package version is independent of the app's four-part version. Bump the npm version for
+wrapper changes. The maintainer publishes from `npm/` after claiming the package name:
+
+```powershell
+npm publish --access public --provenance
+```
+
+or runs the **npm publish** workflow with the `NPM_TOKEN` secret. The release workflow writes
+`checksums.txt`; do not announce the npm channel before a release produced by that workflow
+exists, because the CLI refuses to install without a matching checksum.
+
+The local artifact and smoke directory are ignored through `npm/.gitignore`.
 
 ## Windows 10 and classic verbs
 
@@ -233,6 +271,7 @@ packaging\appinstaller.template.xml   auto-update manifest (rendered per release
 packaging\Assets\            package logos
 installer\openshell.iss      Inno Setup installer
 installer\install-package.ps1   cert trust + Add-AppxPackage (also standalone)
+npm\                         npm bootstrapper package (bin\, src\, test\)
 plugin\                      optional opencode dashboard plugin (tui.ts, lib\, ui\, test\)
 scripts\                     build / package / sign / installer / appinstaller / plugin / install
 tests\menu-smoke-test.ps1    end-to-end menu smoke test
