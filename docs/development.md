@@ -94,7 +94,7 @@ This needs an interactive desktop session. It opens a scratch folder, right-clic
 
 ## Plugin development
 
-The optional TUI plugin lives in `plugin/` and is a multi-file Bun/TypeScript project:
+The TUI plugin lives in `plugin/` and is a multi-file Bun/TypeScript project:
 
 ```
 plugin/
@@ -123,11 +123,22 @@ bun run typecheck
 bun test
 ```
 
-JSX files must start with `/** @jsxImportSource @opentui/solid */`. The installer copies only the runtime files, `tui.ts`, `lib/` and `ui/`; it never copies `package.json`, `tsconfig.json`, `bun.lock` or `test/`. Verify the layout with:
+JSX files must start with `/** @jsxImportSource @opentui/solid */`. The installed plugin contains only the runtime files, `tui.ts`, `lib/` and `ui/`; it never contains `package.json`, `tsconfig.json`, `bun.lock` or `test/`. Verify the development installer layout with:
 
 ```powershell
 .\scripts\test-install-plugin.ps1
 ```
+
+`scripts\build.ps1` copies the same runtime files to `<OutDir>\plugin` so the package carries its own payload. The shipped CLI deploys it without a network round trip:
+
+```powershell
+ocshell plugin install                    # %USERPROFILE%\.config\opencode\plugins\open-in-opencode
+ocshell plugin status
+ocshell plugin uninstall
+.\tests\plugin-install.ps1                # install/status/uninstall against a temporary target
+```
+
+`plugin install` replaces the target directory wholesale and writes `.version` from the package version, so renamed or deleted modules cannot linger. The Windows installer and the direct-update helper call it automatically; the Store build packages the payload but leaves the call to the user.
 
 The plugin tests do not need OpenCode running. Manual TUI checks use OpenCode 2.2.5 or newer. `update apply` has no cancel: if you leave the page while it runs, the installer may continue; the 10-minute timeout terminates the direct child only.
 
@@ -156,7 +167,7 @@ ocshell settings set updateUri <url>     # override the built-in source
 
 `OnLaunch` update prompts only fire when the app is launched. This package has no launchable surface, so `AutomaticBackgroundTask` is the dependable path.
 
-The release workflow (`.github/workflows/release.yml`) builds and signs both architectures. The user-facing tag publishes the versioned and fixed-name setup executables, `install.ps1` and `checksums.txt`; the bundle, the `.appinstaller` and the `.cer` go to the fixed `updates` prerelease so testers see one download, and older bundles are pruned. A separate `store` job builds `-Store` and uploads the Store bundle as the `store-msix` artifact. Push a tag matching the package version (for example `v1.0.0.0`).
+The release workflow (`.github/workflows/release.yml`) builds and signs both architectures. The user-facing tag publishes the versioned and fixed-name setup executables, `install.ps1` and `checksums.txt`; the bundle, the `.appinstaller`, the `.cer`, the runtime plugin zip (`OpenInOpenCode-plugin-<version>.zip`, runtime files at the archive root) and `plugin-checksums.txt` go to the fixed `updates` prerelease so testers see one download. Older bundles and plugin zips are pruned. `checksums.txt` and `plugin-checksums.txt` are generated from the built files in the same run, so npm and future automation never need hand-maintained hashes. A separate `store` job builds `-Store` and uploads the Store bundle as the `store-msix` artifact. Push a tag matching the package version (for example `v1.0.0.0`).
 
 CI pins llvm-mingw `20261020` and `Microsoft.Windows.SDK.BuildTools` `10.0.28000.2957`; both fail loudly rather than fall back to latest.
 
@@ -211,7 +222,7 @@ npm install --prefix .\smoke .\open-in-opencode-0.1.0.tgz
 
 `install` downloads the fixed-name setup and `checksums.txt` from the latest release, or a
 pinned release with `--version <x.y.z.w>`, verifies SHA-256, and runs the setup elevated.
-`doctor`, `settings` and `update` delegate to `ocshell.exe`. `uninstall` runs the Inno
+`doctor`, `settings`, `plugin` and `update` delegate to `ocshell.exe`. `uninstall` runs the Inno
 uninstaller when it exists, then falls back to removing the MSIX package.
 
 The package version is independent of the app's four-part version. Bump the npm version for
@@ -272,7 +283,7 @@ packaging\Assets\            package logos
 installer\openshell.iss      Inno Setup installer
 installer\install-package.ps1   cert trust + Add-AppxPackage (also standalone)
 npm\                         npm bootstrapper package (bin\, src\, test\)
-plugin\                      optional opencode dashboard plugin (tui.ts, lib\, ui\, test\)
+plugin\                      opencode dashboard plugin (tui.ts, lib\, ui\, test\); runtime files are packaged
 scripts\                     build / package / sign / installer / appinstaller / plugin / install
 tests\menu-smoke-test.ps1    end-to-end menu smoke test
 tests\com-activation.ps1     headless COM activation check (ARM64 CI)

@@ -14,6 +14,7 @@ Usage:
   open-in-opencode install [options]
   open-in-opencode doctor [--json]
   open-in-opencode settings <command> [...]
+  open-in-opencode plugin <install|uninstall|status>
   open-in-opencode update <check|apply>
   open-in-opencode uninstall
   open-in-opencode version
@@ -55,6 +56,7 @@ export async function main(argv, deps = {}) {
         return await runInstall(rest, deps, log)
       case 'doctor':
       case 'settings':
+      case 'plugin':
       case 'update':
         return await runOcshellCommand(command, rest, deps)
       case 'uninstall':

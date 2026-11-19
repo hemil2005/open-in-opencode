@@ -77,6 +77,7 @@ You need [opencode](https://opencode.ai) installed and signed in. Developer Mode
 <br>
 
 - On Windows 11 it trusts the signing certificate in `LocalMachine\TrustedPeople` (not the Root store) and installs the MSIX package. On Windows 10 it places `ocshell.exe` in `Program Files` and registers classic context-menu verbs.
+- Both paths deploy the opencode plugin into the profile of the user who ran the installer, so `/ocshell` works after restarting opencode.
 - The extension only launches a local process. There is no telemetry, no elevation, and no network access beyond update checks.
 - Uninstalling from **Settings > Apps** removes the package and offers to remove the certificate too.
 - Everything is open source. You can [build and sign it yourself](docs/development.md).
@@ -109,7 +110,7 @@ Right-click a folder, or empty space inside one, and choose **Open in OpenCode**
 - **Finds your terminal**: Windows Terminal, Alacritty, WezTerm, kitty, Ghostty, ConEmu, mintty and others, with the Windows console as fallback.
 - **Crash-safe**: runs out of process, so a fault can't take down Explorer.
 - **Signed package** with standard MSIX auto-updates.
-- **Optional opencode plugin** that opens a full-page `/ocshell` dashboard in the TUI.
+- **opencode plugin included**: the installer deploys it automatically, so `/ocshell` is available in the TUI right after a restart.
 
 ## Compatibility
 
@@ -134,6 +135,8 @@ ocshell settings launch list    # ordered context-menu launch options
 ocshell settings launch add "Fast model" "--model fast"
 ocshell settings launch hide custom-1 true
 ocshell settings launch move custom-1 up
+ocshell plugin status
+ocshell plugin install
 ocshell selftest
 ```
 
@@ -160,18 +163,21 @@ Argument templates understand `{dir}`, `{command}`, `{commandline}` and `{pscomm
 
 ### Inside opencode
 
-An optional plugin opens a full-page dashboard with `/ocshell`. It shows package and certificate health, the `ocshell` and `opencode` paths, the current terminal, every setting, update state and diagnostics. Writes go through `ocshell.exe`, so the CLI remains the source of truth. OpenCode 2.2.5 or newer is required.
+A plugin opens a full-page dashboard with `/ocshell`. It shows package and certificate health, the `ocshell` and `opencode` paths, the current terminal, every setting, update state and diagnostics. Writes go through `ocshell.exe`, so the CLI remains the source of truth. OpenCode 2.2.5 or newer is required.
+
+The installer, the one-liner and the npm channel deploy the plugin into `%USERPROFILE%\.config\opencode\plugins\open-in-opencode` as the user who ran the install. Direct MSIX updates refresh it automatically. Microsoft Store installs package the same payload but cannot run a post-install step, so run this once after installing from the Store:
 
 Keys: up/down or `k`/`j` select, Enter change, `r` refresh, `c` copy the diagnostics report, `d` open diagnostics, Escape go back. The terminal picker searches detected terminals and disables ones without a launch template. Invalid paths and update URLs are rejected before anything is written. Copy uses OSC 52 first, then `clip.exe`, then a temporary file whose path is shown.
 
 The Advanced section also manages the Explorer context menu. **Add launch option** creates up to three custom entries; type flags exactly as they should follow `opencode` (include `-` or `--`, the `opencode` prefix is automatic). **Launch options** lets you hide entries you do not use and move built-in or custom entries up and down. Hidden entries stay configured but disappear from the menu. On Windows 11 the packaged menu reads these settings live; on Windows 10 the registry verbs are refreshed after each change.
 
 ```powershell
-.\scripts\install-plugin.ps1              # installs to %USERPROFILE%\.config\opencode\plugins\open-in-opencode
-.\scripts\install-plugin.ps1 -Uninstall
+ocshell plugin install     # deploy or refresh from the installed package
+ocshell plugin status      # show the installed version and path
+ocshell plugin uninstall   # remove the plugin
 ```
 
-Restart opencode, then run `/ocshell`.
+Restart opencode, then run `/ocshell`. If the plugin is missing or out of date, `ocshell doctor` reports it.
 
 ## Updates
 

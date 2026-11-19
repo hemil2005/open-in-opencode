@@ -193,7 +193,8 @@ $core = @(
     'src\core\registry.cpp',
     'src\core\launch.cpp',
     'src\core\http.cpp',
-    'src\core\update.cpp'
+    'src\core\update.cpp',
+    'src\core\plugin.cpp'
 ) | ForEach-Object { Join-Path $root $_ }
 
 $optimize = if ($Configuration -eq 'debug') {
@@ -227,6 +228,20 @@ Write-Host 'exe      : noop.exe'
 if ($LASTEXITCODE -ne 0) { throw 'placeholder build failed' }
 
 Copy-Item (Join-Path $root 'packaging\Assets') $OutDir -Recurse -Force
+
+# --- opencode plugin payload ---------------------------------------------------------
+# Shipped next to ocshell.exe so `ocshell plugin install` can deploy it without a network
+# round trip. Only runtime files are copied; tests, package.json and node_modules stay out.
+$pluginSource = Join-Path $root 'plugin'
+$pluginTarget = Join-Path $OutDir 'plugin'
+if (Test-Path $pluginTarget) { Remove-Item $pluginTarget -Recurse -Force }
+New-Item -ItemType Directory -Force -Path (Join-Path $pluginTarget 'lib'), (Join-Path $pluginTarget 'ui') | Out-Null
+Copy-Item (Join-Path $pluginSource 'tui.ts') $pluginTarget -Force
+Copy-Item (Join-Path $pluginSource 'lib\*.ts') (Join-Path $pluginTarget 'lib') -Force
+Copy-Item (Join-Path $pluginSource 'ui\*.ts') (Join-Path $pluginTarget 'ui') -Force
+Copy-Item (Join-Path $pluginSource 'ui\*.tsx') (Join-Path $pluginTarget 'ui') -Force
+Write-Host 'plugin   : runtime files'
+
 if ($Store) {
     $storeLogo = Join-Path $root 'packaging\AssetsStore\StoreLogo.png'
     if (Test-Path $storeLogo) {

@@ -108,10 +108,12 @@ test('forwards settings and update commands', async () => {
   }
 
   await main(['settings', 'set', 'logging', 'true'], deps)
+  await main(['plugin', 'install'], deps)
   await main(['update', 'apply'], deps)
 
   assert.deepEqual(calls, [
     ['settings', 'set', 'logging', 'true'],
+    ['plugin', 'install'],
     ['update', 'apply'],
   ])
 })

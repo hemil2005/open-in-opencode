@@ -76,6 +76,30 @@ jobs:
         shell: pwsh
         run: ./scripts/build-installer.ps1 -InstallTools
 
+      - name: Test the plugin deployment
+        shell: pwsh
+        run: ./tests/plugin-install.ps1 -Ocshell stage/x64/ocshell.exe
+
+      - name: Stage the plugin payload
+        shell: pwsh
+        run: |
+          $identity = Get-Content packaging/identity.json -Raw | ConvertFrom-Json
+          $stage = 'out/plugin-stage/plugin'
+          Remove-Item 'out/plugin-stage' -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force "$stage/lib", "$stage/ui" | Out-Null
+          Copy-Item plugin/tui.ts $stage -Force
+          Copy-Item plugin/lib/*.ts "$stage/lib" -Force
+          Copy-Item plugin/ui/*.ts "$stage/ui" -Force
+          Copy-Item plugin/ui/*.tsx "$stage/ui" -Force
+          $zip = "out/OpenInOpenCode-plugin-$($identity.version).zip"
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+          # Runtime files at the zip root, so the archive can be extracted straight into the
+          # opencode plugin directory if someone does not use `ocshell plugin install`.
+          Compress-Archive -Path 'out/plugin-stage/plugin/*' -DestinationPath $zip
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $(Split-Path $zip -Leaf)" | Set-Content out/plugin-checksums.txt -Encoding ascii
+          Get-Content out/plugin-checksums.txt
+
       - name: Stage fixed-name assets
         shell: pwsh
         run: |
@@ -106,6 +130,8 @@ jobs:
           if (-not (Test-Path "out/OpenInOpenCodeSetup-$($identity.version).exe")) { throw 'missing setup' }
           if (-not (Test-Path 'out/install.ps1')) { throw 'missing install.ps1' }
           if (-not (Test-Path 'out/checksums.txt')) { throw 'missing checksums.txt' }
+          if (-not (Test-Path "out/OpenInOpenCode-plugin-$($identity.version).zip")) { throw 'missing plugin zip' }
+          if (-not (Test-Path 'out/plugin-checksums.txt')) { throw 'missing plugin checksums' }
           $bundle = Get-ChildItem out -Filter '*.msixbundle' | Select-Object -First 1
           if (-not $bundle) { throw 'missing bundle' }
           $installer = Get-Content out/OpenInOpenCode.appinstaller -Raw
@@ -125,8 +151,10 @@ jobs:
           }
           gh release upload updates `
             "out/OpenInOpenCode_$($identity.version).msixbundle" `
+            "out/OpenInOpenCode-plugin-$($identity.version).zip" `
             out/OpenInOpenCode.appinstaller `
-            out/OpenInOpenCode.cer --clobber
+            out/OpenInOpenCode.cer `
+            out/plugin-checksums.txt --clobber
 
       - name: Prune old update bundles
         shell: pwsh
@@ -135,9 +163,11 @@ jobs:
         run: |
           $identity = Get-Content packaging/identity.json -Raw | ConvertFrom-Json
           $keep = "OpenInOpenCode_$($identity.version).msixbundle"
+          $pluginKeep = "OpenInOpenCode-plugin-$($identity.version).zip"
           $assets = gh release view updates --json assets --jq '.assets[].name'
           foreach ($name in $assets) {
-            if ($name -like 'OpenInOpenCode_*.msixbundle' -and $name -ne $keep) {
+            if (($name -like 'OpenInOpenCode_*.msixbundle' -and $name -ne $keep) -or
+                ($name -like 'OpenInOpenCode-plugin-*.zip' -and $name -ne $pluginKeep)) {
               Write-Host "deleting $name"
               gh release delete-asset updates $name --yes
             }
@@ -177,6 +207,7 @@ jobs:
       - name: Assert the Store identity
         shell: pwsh
         run: |
+          $identity = Get-Content packaging/identity.store.json -Raw | ConvertFrom-Json
           $bundle = Get-ChildItem out/store -Filter '*.msixbundle' | Select-Object -First 1
           if (-not $bundle) { throw 'no Store bundle produced' }
           Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -184,9 +215,9 @@ jobs:
           Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
           [IO.Compression.ZipFile]::ExtractToDirectory($bundle.FullName, $tmp)
           $bundleManifest = Get-Content (Join-Path $tmp 'AppxMetadata\AppxBundleManifest.xml') -Raw
-          if ($bundleManifest -notmatch 'Name="Hemil\.OpeninOpenCode"') { throw 'wrong bundle Name' }
-          if ($bundleManifest -notmatch 'Publisher="CN=CF970B36-771B-4CB4-BE90-BB2782DFF0B7"') { throw 'wrong bundle Publisher' }
-          if ($bundleManifest -notmatch 'Version="1\.0\.0\.0"') { throw 'wrong bundle Version' }
+          if ($bundleManifest -notmatch [regex]::Escape("Name=`"$($identity.name)`"")) { throw 'wrong bundle Name' }
+          if ($bundleManifest -notmatch [regex]::Escape("Publisher=`"$($identity.publisher)`"")) { throw 'wrong bundle Publisher' }
+          if ($bundleManifest -notmatch [regex]::Escape("Version=`"$($identity.version)`"")) { throw 'wrong bundle Version' }
           $msix = Get-ChildItem $tmp -Filter '*x64*.msix' | Select-Object -First 1
           $pkg = Join-Path $tmp 'x64pkg'
           [IO.Compression.ZipFile]::ExtractToDirectory($msix.FullName, $pkg)

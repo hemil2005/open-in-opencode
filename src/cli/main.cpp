@@ -13,6 +13,7 @@
 #include "core/launch.hpp"
 #include "core/log.hpp"
 #include "core/paths.hpp"
+#include "core/plugin.hpp"
 #include "core/registry.hpp"
 #include "core/settings.hpp"
 #include "core/terminals.hpp"
@@ -406,6 +407,8 @@ int CommandDoctor(const std::vector<std::wstring>& arguments) {
 
   std::wstring package = PackageState();
   std::wstring certificate = CertificateState();
+  const std::wstring pluginTarget = oc::PluginInstallDirectory();
+  const std::wstring pluginVersion = oc::PluginInstalledVersion(pluginTarget);
 
   if (HasFlag(arguments, L"--json")) {
     oc::json::Value root = oc::json::Value::MakeObject();
@@ -418,6 +421,8 @@ int CommandDoctor(const std::vector<std::wstring>& arguments) {
     root.Set(L"binarySource", oc::json::Value::MakeString(source));
     root.Set(L"package", oc::json::Value::MakeString(package));
     root.Set(L"certificate", oc::json::Value::MakeString(certificate));
+    root.Set(L"pluginVersion", oc::json::Value::MakeString(pluginVersion));
+    root.Set(L"pluginPath", oc::json::Value::MakeString(pluginTarget));
     root.Set(L"terminalCount", oc::json::Value::MakeNumber(static_cast<double>(terminals.size())));
     root.Set(L"terminal", oc::json::Value::MakeString(chosen ? chosen->id : L""));
     Line(oc::json::Write(root, true));
@@ -427,6 +432,9 @@ int CommandDoctor(const std::vector<std::wstring>& arguments) {
   Line(L"Open in OpenCode " + std::wstring(OC_IDENTITY_VERSION));
   Line(L"package      : " + package);
   Line(L"certificate  : " + certificate);
+  Line(L"plugin       : " + (pluginVersion.empty()
+                                ? L"not installed (run `ocshell plugin install`)"
+                                : pluginVersion + L"  " + pluginTarget));
   Line(L"settings     : " + oc::SettingsPath() + (loaded ? L"" : L"  (defaults)"));
   if (!warning.empty()) Line(L"               " + warning);
   Line(L"opencode     : " + (has_binary ? binary + L"  (" + source + L")" : L"NOT FOUND"));
@@ -571,6 +579,15 @@ int CommandSelfTest() {
     check(L"unsupported terminal rejected", !oc::BuildTerminalArgv(tabby, L"C:\\work", {L"x"}, &argv, &error));
   }
 
+  // Plugin payload is packaged next to ocshell.exe
+  {
+    const std::wstring source = oc::PluginSourceDirectory(nullptr);
+    const DWORD attributes = GetFileAttributesW((source + L"\\tui.ts").c_str());
+    check(L"plugin payload packaged",
+          attributes != INVALID_FILE_ATTRIBUTES && !(attributes & FILE_ATTRIBUTE_DIRECTORY));
+    check(L"plugin install target resolved", !oc::PluginInstallDirectory().empty());
+  }
+
   Line();
   Line(failures == 0 ? L"all checks passed" : std::to_wstring(failures) + L" check(s) failed");
   return failures == 0 ? 0 : 1;
@@ -694,6 +711,11 @@ int CommandUpdateApply() {
       L"((Get-Date) -lt $deadline)) { Start-Sleep -Milliseconds 200 }\n" +
       L"Start-Sleep -Milliseconds 500\n" +
       L"Add-AppxPackage -Path '" + quote(bundle) + L"' *> '" + quote(console_log) + L"'\n" +
+      // Refresh the opencode plugin from the newly installed package so the dashboard
+      // tracks the app version without a second manual step.
+      L"$pkg = Get-AppxPackage OpenInOpenCode | Select-Object -First 1\n" +
+      L"if ($pkg) { & (Join-Path $pkg.InstallLocation 'ocshell.exe') plugin install "
+      L"*>> '" + quote(console_log) + L"' }\n" +
       L"Remove-Item '" + quote(bundle) + L"' -Force -ErrorAction SilentlyContinue\n";
 
   std::wstring command = L"powershell.exe -NoProfile -NonInteractive -EncodedCommand " +
@@ -722,6 +744,54 @@ int CommandUpdateApply() {
   Line(L"log      : " + console_log);
   Line(L"check    : ocshell version");
   return 0;
+}
+
+int CommandPlugin(const std::vector<std::wstring>& arguments) {
+  if (arguments.size() < 3) {
+    return Fail(L"usage: ocshell plugin install|uninstall|status [--source <dir>] [--target <dir>]");
+  }
+
+  const std::wstring& action = arguments[2];
+  std::wstring source = oc::PluginSourceDirectory(nullptr);
+  std::wstring target = oc::PluginInstallDirectory();
+
+  for (size_t i = 3; i < arguments.size(); ++i) {
+    if (arguments[i] == L"--source" && i + 1 < arguments.size()) {
+      source = arguments[++i];
+    } else if (arguments[i] == L"--target" && i + 1 < arguments.size()) {
+      target = arguments[++i];
+    } else {
+      return Fail(L"unknown plugin option: " + arguments[i]);
+    }
+  }
+
+  if (action == L"status") {
+    const std::wstring version = oc::PluginInstalledVersion(target);
+    if (version.empty()) {
+      Line(L"plugin: not installed");
+    } else {
+      Line(L"plugin: installed (" + version + L")");
+    }
+    Line(L"path  : " + target);
+    return 0;
+  }
+
+  if (action == L"install") {
+    std::wstring error;
+    if (!oc::InstallPlugin(source, target, OC_IDENTITY_VERSION, &error)) return Fail(error);
+    Line(L"plugin installed: " + target);
+    Line(L"restart opencode, then run /ocshell");
+    return 0;
+  }
+
+  if (action == L"uninstall") {
+    std::wstring error;
+    if (!oc::UninstallPlugin(target, &error)) return Fail(error);
+    Line(L"plugin removed: " + target);
+    return 0;
+  }
+
+  return Fail(L"unknown plugin action: " + action);
 }
 
 int CommandRegistry(const std::vector<std::wstring>& arguments) {
@@ -777,6 +847,7 @@ void Usage() {
   Line(L"  ocshell doctor [--json]");
   Line(L"  ocshell update check [--json]");
   Line(L"  ocshell update apply");
+  Line(L"  ocshell plugin install|uninstall|status [--source <dir>] [--target <dir>]");
   Line(L"  ocshell registry install|uninstall|status [--force]");
   Line(L"  ocshell selftest");
   Line(L"  ocshell version");
@@ -797,6 +868,7 @@ int main() {
 
   const std::wstring& command = arguments[1];
   if (command == L"launch") return CommandLaunch(arguments);
+  if (command == L"plugin") return CommandPlugin(arguments);
   if (command == L"registry") return CommandRegistry(arguments);
   if (command == L"doctor") return CommandDoctor(arguments);
   if (command == L"update") {

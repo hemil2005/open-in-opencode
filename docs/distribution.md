@@ -31,6 +31,9 @@ Open in OpenCode ships through three channels.
   accepted for this project. No CA or Azure Trusted Signing certificate is used.
 - Updates use the fixed `updates` prerelease and the `.appinstaller`; `ocshell update apply`
   installs from a detached helper after the running process exits.
+- The installer deploys the opencode plugin into the profile of the user who ran it, and the
+  direct-update helper refreshes it. The runtime plugin zip and `plugin-checksums.txt` are
+  published in the `updates` prerelease next to the bundle.
 
 ## npm
 
@@ -41,8 +44,9 @@ Open in OpenCode ships through three channels.
   and installer rules above still apply.
 - The package is Windows-only and requires Node.js 22 or newer. `npm install -g` does not
   change the machine; installation is the explicit `open-in-opencode install` command.
-- `doctor`, `settings` and `update` delegate to `ocshell.exe`. The npm wrapper version is
-  independent of the app's four-part version.
+- `doctor`, `settings`, `plugin` and `update` delegate to `ocshell.exe`. The npm wrapper
+  version is independent of the app's four-part version. `plugin` installs the TUI dashboard
+  from the packaged payload, so npm installs get `/ocshell` like the direct installer.
 
 ## Why both MSIX and EXE
 
@@ -78,6 +82,6 @@ entry.
 GitHub Actions (windows-latest)
   -> llvm-mingw 20261020 + SDK BuildTools 10.0.28000.2957
   -> x64 + arm64 DLLs -> OpenInOpenCode_<version>.msixbundle
-  -> direct: sign with the self-signed cert, publish setup + install.ps1, payload to "updates"
+  -> direct: sign with the self-signed cert, publish setup + install.ps1 + checksums, payload + plugin zip + plugin checksums to "updates"
   -> store: build -Store, assert identity, upload the store-msix artifact for submission
 ```

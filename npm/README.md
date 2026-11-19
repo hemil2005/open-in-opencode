@@ -14,9 +14,10 @@ npx open-in-opencode install
 ```
 
 The npm package is a small bootstrapper. It downloads the signed Windows setup, verifies its
-SHA-256 checksum, and runs it. The setup performs the real installation and asks for
-administrator approval. `npm install -g` itself does not change the machine or request
-elevation. SmartScreen may show the same "unknown publisher" warning as the direct installer.
+SHA-256 checksum, and runs it. The setup performs the real installation, asks for administrator
+approval, and deploys the opencode plugin for the current user. `npm install -g` itself does not
+change the machine or request elevation. SmartScreen may show the same "unknown publisher"
+warning as the direct installer.
 
 ## Requirements
 
@@ -32,11 +33,14 @@ open-in-opencode install --version 1.0.0.0
 open-in-opencode install --dry-run       # show the download URLs
 open-in-opencode doctor                  # check the package, certificate, binary and terminal
 open-in-opencode settings list
+open-in-opencode plugin status
+open-in-opencode plugin install          # deploy or refresh /ocshell
 open-in-opencode update check
 open-in-opencode uninstall
 ```
 
-`doctor`, `settings` and `update` delegate to `ocshell.exe`, which remains the source of truth.
+`doctor`, `settings`, `plugin` and `update` delegate to `ocshell.exe`, which remains the source
+of truth.
 
 ## Removing
 

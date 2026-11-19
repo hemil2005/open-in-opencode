@@ -53,6 +53,12 @@ Source: "install-package.ps1"; DestDir: "{tmp}"; Flags: deleteafterinstall; Chec
 ; Windows 10: the CLI is the product, and it writes the registry verbs itself.
 Source: "..\out\ocshell.exe"; DestDir: "{app}"; Flags: ignoreversion; Check: IsWindows10
 
+; The runtime plugin payload, deployed into the invoking user's opencode config after install.
+Source: "..\plugin\tui.ts"; DestDir: "{app}\plugin"; Flags: ignoreversion; Check: IsWindows10
+Source: "..\plugin\lib\*.ts"; DestDir: "{app}\plugin\lib"; Flags: ignoreversion; Check: IsWindows10
+Source: "..\plugin\ui\*.ts"; DestDir: "{app}\plugin\ui"; Flags: ignoreversion; Check: IsWindows10
+Source: "..\plugin\ui\*.tsx"; DestDir: "{app}\plugin\ui"; Flags: ignoreversion; Check: IsWindows10
+
 [Code]
 function IsWindows11: Boolean;
 var
@@ -94,9 +100,33 @@ begin
   end;
 
   if not Succeeded then
+  begin
     MsgBox('Open in OpenCode could not be installed.' + #13#10 + #13#10 +
            'Run the installer again, or see the README for a manual installation.',
            mbError, MB_OK);
+    Exit;
+  end;
+
+  // Deploy the opencode plugin into the invoking user's config. ExecAsOriginalUser runs as
+  // the non-elevated user, so %USERPROFILE% is theirs and not the administrator account's.
+  if IsWindows11 then
+  begin
+    if ExecAsOriginalUser(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+         '-NoProfile -ExecutionPolicy Bypass -Command "$p = Get-AppxPackage OpenInOpenCode | ' +
+         'Select-Object -First 1; if ($p) { & (Join-Path $p.InstallLocation ''ocshell.exe'') plugin install }"',
+         '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+      Log('opencode plugin installed')
+    else
+      Log('opencode plugin install skipped; run "ocshell plugin install" later');
+  end
+  else
+  begin
+    if ExecAsOriginalUser(ExpandConstant('{app}\ocshell.exe'), 'plugin install', '',
+         SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+      Log('opencode plugin installed')
+    else
+      Log('opencode plugin install skipped; run "ocshell plugin install" later');
+  end;
 end;
 
 function InitializeUninstall(): Boolean;
@@ -105,6 +135,16 @@ var
   ResultCode: Integer;
 begin
   Result := True;
+
+  // Remove the per-user opencode plugin before the package and files are removed.
+  if IsWindows11 then
+    ExecAsOriginalUser(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+      '-NoProfile -ExecutionPolicy Bypass -Command "$p = Get-AppxPackage OpenInOpenCode | ' +
+      'Select-Object -First 1; if ($p) { & (Join-Path $p.InstallLocation ''ocshell.exe'') plugin uninstall }"',
+      '', SW_HIDE, ewWaitUntilTerminated, ResultCode)
+  else if FileExists(ExpandConstant('{app}\ocshell.exe')) then
+    ExecAsOriginalUser(ExpandConstant('{app}\ocshell.exe'), 'plugin uninstall', '',
+      SW_HIDE, ewWaitUntilTerminated, ResultCode);
 
   // Windows 10: remove the classic verbs before the executable is deleted.
   if FileExists(ExpandConstant('{app}\ocshell.exe')) then

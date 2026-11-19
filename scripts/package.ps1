@@ -83,6 +83,11 @@ foreach ($arch in @('x64', 'arm64')) {
     if ($Store) { $buildArgs.Store = $true }
     & (Join-Path $PSScriptRoot 'build.ps1') @buildArgs
     if ($LASTEXITCODE -ne 0) { throw "build failed for $arch" }
+
+    # The runtime plugin is packaged next to ocshell.exe; catch a broken build before packing.
+    if (-not (Test-Path (Join-Path $root "stage\$arch\plugin\tui.ts"))) {
+        throw "plugin payload missing for $arch"
+    }
 }
 
 if (Test-Path $outDir) { Remove-Item $outDir -Recurse -Force }
