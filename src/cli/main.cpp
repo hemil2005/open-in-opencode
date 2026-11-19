@@ -710,7 +710,9 @@ int CommandUpdateApply() {
       L"while ((Get-Process -Id $parentPid -ErrorAction SilentlyContinue) -and "
       L"((Get-Date) -lt $deadline)) { Start-Sleep -Milliseconds 200 }\n" +
       L"Start-Sleep -Milliseconds 500\n" +
-      L"Add-AppxPackage -Path '" + quote(bundle) + L"' *> '" + quote(console_log) + L"'\n" +
+      L"try { Add-AppxPackage -Path '" + quote(bundle) + L"' -ForceApplicationShutdown "
+      L"-ErrorAction Stop *> '" + quote(console_log) + L"' }\n" +
+      L"catch { Add-AppxPackage -Path '" + quote(bundle) + L"' *> '" + quote(console_log) + L"' }\n" +
       // Refresh the opencode plugin from the newly installed package so the dashboard
       // tracks the app version without a second manual step.
       L"$pkg = Get-AppxPackage OpenInOpenCode | Select-Object -First 1\n" +

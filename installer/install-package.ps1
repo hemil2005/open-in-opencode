@@ -66,17 +66,19 @@ try {
 
     if ($AppInstaller -and (Test-Path $AppInstaller)) {
         # The appinstaller pulls the bundle from its URI and registers the update source.
+        # ForceTargetApplicationShutdown lets an in-use shell extension update without closing
+        # Explorer; the bundle fallback uses the stronger ForceApplicationShutdown.
         try {
-            Add-AppxPackage -AppInstallerFile $AppInstaller -ErrorAction Stop
+            Add-AppxPackage -AppInstallerFile $AppInstaller -ForceTargetApplicationShutdown -ErrorAction Stop
             Write-Host 'installed from the appinstaller; updates registered'
         } catch {
             if (-not ($Bundle -and (Test-Path $Bundle))) { throw }
             Write-Warning "appinstaller install failed: $($_.Exception.Message)"
             Write-Host 'falling back to the bundled package'
-            Add-AppxPackage -Path $Bundle
+            Add-AppxPackage -Path $Bundle -ForceApplicationShutdown
         }
     } else {
-        Add-AppxPackage -Path $Bundle
+        Add-AppxPackage -Path $Bundle -ForceApplicationShutdown
     }
 
     $now = Get-AppxPackage OpenInOpenCode

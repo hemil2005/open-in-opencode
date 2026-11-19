@@ -4,6 +4,15 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.1.1] - 2026-11-19
+
+### Fixed
+
+- MSIX updates now pass `-ForceApplicationShutdown` to `Add-AppxPackage`, so an update applies
+  while the Explorer shell extension is loaded instead of failing with `0x80073D02`. The
+  installer's `install-package.ps1` uses the same flag for both the `.appinstaller` and bundle
+  paths, with the existing bundle fallback.
+
 ## [1.0.1] - 2026-11-19
 
 ### Added
